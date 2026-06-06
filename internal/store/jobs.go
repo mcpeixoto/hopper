@@ -85,7 +85,7 @@ func (s *Store) SubmitJob(spec JobSpec) (Job, error) {
 
 // GetJob returns the job with the given id, or [ErrNotFound].
 func (s *Store) GetJob(id string) (Job, error) {
-	return scanJob(s.db.QueryRow(jobSelect + ` WHERE id = ?`, id))
+	return scanJob(s.db.QueryRow(jobSelect+` WHERE id = ?`, id))
 }
 
 // ListJobs returns jobs, newest first. If status is non-empty it filters by it.
