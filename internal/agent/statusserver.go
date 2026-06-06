@@ -3,10 +3,12 @@ package agent
 import (
 	"encoding/json"
 	"net/http"
+
+	nodeui "github.com/mcpeixoto/hopper/web/node"
 )
 
-// StatusHandler serves the agent's live status as JSON for the local node GUI.
-// It is intended to be bound to a loopback address only.
+// StatusHandler serves the agent's live status JSON plus the embedded node console
+// at "/". It is intended to be bound to a loopback address only.
 func (a *Agent) StatusHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -18,5 +20,7 @@ func (a *Agent) StatusHandler() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(a.Status())
 	})
+	// Embedded node GUI (index.html, app.js, styles.css) served at root.
+	mux.Handle("GET /", http.FileServerFS(nodeui.FS()))
 	return mux
 }

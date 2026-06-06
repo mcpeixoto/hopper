@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hopper Node</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%231b2230'/><rect x='3' y='4' width='10' height='3' fill='%236b7280'/><rect x='5' y='7' width='6' height='3' fill='%234a5160'/><rect x='6' y='10' width='4' height='3' fill='%233b4250'/></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="logo"></span><h1>Hopper <span class="muted">node</span></h1></div>
+    <div class="conn"><span id="state-dot" class="dot"></span><span id="state" class="muted">…</span></div>
+  </header>
+
+  <main>
+    <section class="hero card">
+      <div class="hero-id">
+        <div class="host" id="host">—</div>
+        <div class="muted mono" id="wid">—</div>
+      </div>
+      <div class="hero-state">
+        <div class="big" id="big-state">—</div>
+        <div class="muted" id="ver">—</div>
+      </div>
+    </section>
+
+    <section class="stats">
+      <div class="stat card"><div class="n" id="s-done" style="color:var(--green)">0</div><div class="l">jobs done</div></div>
+      <div class="stat card"><div class="n" id="s-failed" style="color:var(--red)">0</div><div class="l">failed</div></div>
+      <div class="stat card"><div class="n" id="s-labels" style="font-size:16px">general</div><div class="l">labels</div></div>
+      <div class="stat card"><div class="n" id="s-uptime" style="font-size:18px">—</div><div class="l">uptime</div></div>
+    </section>
+
+    <section class="card">
+      <h2>Current job</h2>
+      <div id="current"><p class="muted">Idle — waiting for work.</p></div>
+    </section>
+
+    <section class="card">
+      <h2>Last output</h2>
+      <pre id="log" class="log muted">—</pre>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

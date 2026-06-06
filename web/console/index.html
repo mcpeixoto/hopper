@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hopper Console</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%231b2230'/><rect x='3' y='4' width='10' height='3' fill='%236b7280'/><rect x='5' y='7' width='6' height='3' fill='%234a5160'/><rect x='6' y='10' width='4' height='3' fill='%233b4250'/></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"></span>
+      <h1>Hopper <span class="muted">console</span></h1>
+    </div>
+    <div class="conn">
+      <span id="conn-dot" class="dot dot-off"></span>
+      <span id="conn-text" class="muted">disconnected</span>
+      <button id="settings-btn" class="btn ghost">⚙ Settings</button>
+    </div>
+  </header>
+
+  <!-- settings drawer -->
+  <dialog id="settings">
+    <form method="dialog" id="settings-form">
+      <h2>Connection</h2>
+      <label>Control plane URL
+        <input id="cfg-url" type="text" placeholder="https://hopper.example.com" />
+      </label>
+      <label>Operator token
+        <input id="cfg-token" type="password" placeholder="HOPPER_OPERATOR_TOKEN" />
+      </label>
+      <p class="hint">Stored locally in your browser only.</p>
+      <menu>
+        <button class="btn ghost" value="cancel">Cancel</button>
+        <button class="btn primary" id="cfg-save" value="save">Save</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <main>
+    <section class="grid">
+      <!-- submit -->
+      <div class="card span-1">
+        <h2>Submit job</h2>
+        <form id="submit-form" class="stack">
+          <label>Image <input id="f-image" placeholder="alpine:3.20" required /></label>
+          <label>Command <input id="f-cmd" placeholder="echo hello" /></label>
+          <div class="row">
+            <label>Labels <input id="f-labels" placeholder="gpu, bigmem" /></label>
+            <label class="narrow">Priority <input id="f-prio" type="number" value="0" /></label>
+          </div>
+          <button class="btn primary" type="submit">Funnel it ▾</button>
+          <p id="submit-msg" class="msg"></p>
+        </form>
+      </div>
+
+      <!-- fleet -->
+      <div class="card span-1">
+        <h2>Fleet <span id="fleet-count" class="pill">0</span></h2>
+        <div id="fleet" class="fleet"></div>
+      </div>
+
+      <!-- stats -->
+      <div class="card span-1 stats" id="stats"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Jobs</h2>
+        <div class="filters" id="filters">
+          <button class="chip active" data-status="">all</button>
+          <button class="chip" data-status="queued">queued</button>
+          <button class="chip" data-status="in_flight">running</button>
+          <button class="chip" data-status="done">done</button>
+          <button class="chip" data-status="failed">failed</button>
+        </div>
+      </div>
+      <table class="jobs">
+        <thead><tr><th>ID</th><th>Image</th><th>Status</th><th>Node</th><th>Try</th><th>Exit</th><th>Updated</th><th></th></tr></thead>
+        <tbody id="jobs-body"><tr><td colspan="8" class="empty">Connect to a control plane to see jobs.</td></tr></tbody>
+      </table>
+    </section>
+  </main>
+
+  <!-- job detail -->
+  <dialog id="job-detail">
+    <div class="detail-head">
+      <h2 id="d-title">Job</h2>
+      <button class="btn ghost" id="d-close">✕</button>
+    </div>
+    <pre id="d-body" class="detail"></pre>
+    <menu>
+      <button class="btn danger" id="d-cancel">Cancel job</button>
+    </menu>
+  </dialog>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
