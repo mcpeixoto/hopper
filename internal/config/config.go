@@ -21,6 +21,13 @@ type Config struct {
 	LongPollSeconds int      // how long /api/jobs/claim blocks waiting for work
 	AutoUpdate      bool     // self-update to the latest release when enabled
 	UpdateIntervalM int      // minutes between self-update checks
+
+	// GitHub Actions runner integration (optional).
+	GitHubToken         string   // PAT/installation token to mint runner registration tokens
+	GitHubWebhookSecret string   // shared secret for webhook HMAC verification
+	RunnerImage         string   // ephemeral runner image
+	RunnerTriggerLabels []string // workflow runs-on labels that activate Hopper
+	RunnerJobLabels     []string // Hopper node labels runner jobs are routed to
 }
 
 // Load reads the control-plane configuration from the environment.
@@ -36,6 +43,12 @@ func Load() Config {
 		LongPollSeconds: envInt("HOPPER_LONGPOLL_SECONDS", 25),
 		AutoUpdate:      env("HOPPER_AUTOUPDATE", "") != "",
 		UpdateIntervalM: envInt("HOPPER_UPDATE_INTERVAL_MIN", 60),
+
+		GitHubToken:         env("HOPPER_GITHUB_TOKEN", ""),
+		GitHubWebhookSecret: env("HOPPER_GITHUB_WEBHOOK_SECRET", ""),
+		RunnerImage:         env("HOPPER_RUNNER_IMAGE", "myoung34/github-runner:latest"),
+		RunnerTriggerLabels: splitList(env("HOPPER_RUNNER_TRIGGER_LABELS", "self-hosted,hopper")),
+		RunnerJobLabels:     splitList(env("HOPPER_RUNNER_JOB_LABELS", "ci")),
 	}
 }
 

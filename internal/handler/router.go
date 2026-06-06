@@ -18,6 +18,11 @@ func Router(api *API, operatorToken, nodeToken string, corsOrigins []string) htt
 	// Health — no auth.
 	mux.HandleFunc("GET /health", api.Health)
 
+	// GitHub Actions webhook — authenticated by HMAC signature, not a bearer token.
+	if api.GitHub != nil {
+		mux.HandleFunc("POST /api/github/webhook", api.GitHubWebhook)
+	}
+
 	// Operator / submission plane.
 	mux.Handle("POST /api/jobs", operator(http.HandlerFunc(api.SubmitJob)))
 	mux.Handle("GET /api/jobs", operator(http.HandlerFunc(api.ListJobs)))

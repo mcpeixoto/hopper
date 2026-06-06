@@ -13,6 +13,7 @@ import (
 
 	"github.com/mcpeixoto/hopper/internal/blob"
 	"github.com/mcpeixoto/hopper/internal/config"
+	gh "github.com/mcpeixoto/hopper/internal/github"
 	"github.com/mcpeixoto/hopper/internal/handler"
 	"github.com/mcpeixoto/hopper/internal/reaper"
 	"github.com/mcpeixoto/hopper/internal/store"
@@ -44,6 +45,22 @@ func main() {
 		Blob:            blobs,
 		LeaseSeconds:    cfg.LeaseSeconds,
 		LongPollSeconds: cfg.LongPollSeconds,
+	}
+
+	// Optional GitHub Actions runner integration.
+	if cfg.GitHubToken != "" {
+		api.GitHub = &handler.GitHubRunner{
+			Client:        gh.NewClient(cfg.GitHubToken),
+			WebhookSecret: cfg.GitHubWebhookSecret,
+			RunnerImage:   cfg.RunnerImage,
+			TriggerLabels: cfg.RunnerTriggerLabels,
+			JobLabels:     cfg.RunnerJobLabels,
+		}
+		log.Printf("github actions runner integration enabled (image=%s, trigger=%v)",
+			cfg.RunnerImage, cfg.RunnerTriggerLabels)
+		if cfg.GitHubWebhookSecret == "" {
+			log.Printf("WARNING: HOPPER_GITHUB_WEBHOOK_SECRET unset — webhook signature verification disabled")
+		}
 	}
 
 	// Background reaper: requeue expired-lease jobs, mark stale/dead workers.

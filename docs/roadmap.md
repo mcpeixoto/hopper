@@ -17,20 +17,15 @@ Jobs can now take inputs and return outputs, not just logs:
 **Still to do:** graduate to MinIO/S3 + presigned URLs when blobs routinely exceed ~100 MB
 or a third node makes the control plane's uplink the bottleneck.
 
-## Distributed GitHub Actions runners
+## ✅ Distributed GitHub Actions runners — shipped
 
-Hopper is a natural fit for **ephemeral self-hosted runners** — think
-`actions-runner-controller`, minus Kubernetes.
+Hopper runs your CI on your own fleet as **ephemeral self-hosted runners** — see
+[github-actions.md](github-actions.md). A `workflow_job:queued` webhook (HMAC-verified) makes
+Hopper mint a JIT runner token and enqueue a job that runs the runner image in `--ephemeral`
+mode on a CI-labelled node.
 
-- A GitHub App lets Hopper mint just-in-time runner tokens.
-- `hopperd` exposes a webhook; on a `workflow_job` *queued* event for
-  `runs-on: [self-hosted, hopper]`, it submits a job running the official runner image in
-  `--ephemeral` mode.
-- A free node claims it, the runner executes exactly one workflow run, then the container is
-  torn down. No long-lived runner to patch.
-
-This reuses the whole queue/claim/lease/reaper machinery; the only new pieces are the webhook
-receiver and a thin GitHub API client. The trust caveat still applies — only your own repos.
+**Still to do:** Docker-in-Docker / socket mount so container-based steps and `services:`
+work (v1 runs plain steps and most actions); GitHub App auth as an alternative to a PAT.
 
 ## Docker image cache
 

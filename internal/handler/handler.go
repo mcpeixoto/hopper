@@ -20,7 +20,8 @@ const maxBodyBytes = 1 << 20
 // API holds the dependencies shared by every handler.
 type API struct {
 	Store           *store.Store
-	Blob            *blob.Store // nil disables artifact endpoints
+	Blob            *blob.Store   // nil disables artifact endpoints
+	GitHub          *GitHubRunner // nil disables the GitHub Actions integration
 	LeaseSeconds    int
 	LongPollSeconds int
 }

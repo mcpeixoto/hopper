@@ -14,6 +14,7 @@ plane, and any free worker node claims it, runs it, and reports back.
 - **[Worker nodes (`hopper-agent`)](client.md)** — onboarding and running nodes
 - **[Configuration reference](configuration.md)** — every `HOPPER_*` variable
 - **[Releases & auto-update](releases.md)** — tag-driven releases and self-updating fleets
+- **[GitHub Actions runners](github-actions.md)** — run your CI on the fleet
 - **[Security & trust model](security.md)** — the single-trust-domain assumption, hardening
 
 ## Reference
