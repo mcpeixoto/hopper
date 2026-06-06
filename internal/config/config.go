@@ -20,6 +20,7 @@ type Config struct {
 	LeaseSeconds    int      // visibility timeout granted on claim
 	LongPollSeconds int      // how long /api/jobs/claim blocks waiting for work
 	SubmitRPM       int      // per-IP rate limit for submit/webhook (<=0 = unlimited)
+	RetentionDays   int      // purge terminal jobs+blobs older than N days (0 = keep forever)
 	LogLevel        string   // debug | info | warn | error
 	LogFormat       string   // text | json
 	AutoUpdate      bool     // self-update to the latest release when enabled
@@ -45,6 +46,7 @@ func Load() Config {
 		LeaseSeconds:    envInt("HOPPER_LEASE_SECONDS", 120),
 		LongPollSeconds: envInt("HOPPER_LONGPOLL_SECONDS", 25),
 		SubmitRPM:       envInt("HOPPER_SUBMIT_RPM", 0),
+		RetentionDays:   envInt("HOPPER_JOB_RETENTION_DAYS", 0),
 		LogLevel:        env("HOPPER_LOG_LEVEL", "info"),
 		LogFormat:       env("HOPPER_LOG_FORMAT", "text"),
 		AutoUpdate:      env("HOPPER_AUTOUPDATE", "") != "",

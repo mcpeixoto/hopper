@@ -90,6 +90,14 @@ func main() {
 	go reaper.Run(db, time.Duration(cfg.LeaseSeconds)*time.Second, stopReaper)
 	defer close(stopReaper)
 
+	// Optional retention: purge old terminal jobs + their orphaned blobs.
+	if cfg.RetentionDays > 0 {
+		stopRetention := make(chan struct{})
+		go reaper.RunRetention(db, blobs, cfg.RetentionDays, stopRetention)
+		defer close(stopRetention)
+		slog.Info("job retention enabled", "days", cfg.RetentionDays)
+	}
+
 	// Opt-in self-update: poll GitHub releases and re-exec on a newer version.
 	if cfg.AutoUpdate {
 		up := updater.New(version.Repo, "hopperd", version.Version)

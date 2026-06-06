@@ -59,8 +59,27 @@ func (s *Store) Save(r io.Reader) (path, hash string, size int64, err error) {
 
 // Open opens a blob by its storage path (the hash) for reading.
 func (s *Store) Open(path string) (io.ReadCloser, error) {
-	if path == "" || filepath.Base(path) != path {
-		return nil, errors.New("blob: invalid path")
+	if err := validPath(path); err != nil {
+		return nil, err
 	}
 	return os.Open(filepath.Join(s.dir, path))
+}
+
+// Delete removes a blob by its storage path. Missing blobs are not an error.
+func (s *Store) Delete(path string) error {
+	if err := validPath(path); err != nil {
+		return err
+	}
+	err := os.Remove(filepath.Join(s.dir, path))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
+}
+
+func validPath(path string) error {
+	if path == "" || filepath.Base(path) != path {
+		return errors.New("blob: invalid path")
+	}
+	return nil
 }

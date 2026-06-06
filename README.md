@@ -38,7 +38,7 @@ port-forward, no tunnel**. To add a node you run one script on it. That's the wh
 
 ## Why Hopper?
 
-- 🪶 **Two static Go binaries.** `hopperd` (the server) and `hopper-agent` (the client). No
+- 🪶 **Static Go binaries.** `hopperd` (server), `hopper-agent` (worker), `hopper` (CLI). No
   runtime, no daemonset, no Helm chart.
 - 🧲 **Pull-based.** Nodes dial out to the control plane. NAT, dynamic IPs, and coffee-shop
   Wi-Fi all just work.
@@ -46,10 +46,14 @@ port-forward, no tunnel**. To add a node you run one script on it. That's the wh
 - ♻️ **Self-healing.** A claimed job has a lease; if a node dies, the reaper requeues the job.
 - 🐳 **Runs anything.** If it's a Docker image, Hopper can run it — with CPU/memory caps and
   `--network none` by default.
-- 🖥️ **Two GUIs.** A server console to submit and watch jobs + the fleet, and a per-node
-  console showing what that machine is doing right now.
-- ⬆️ **Opt-in auto-update.** Tag a release; your fleet updates itself.
-- 🏃 **Bonus: distributed CI.** Run your GitHub Actions jobs on your own nodes (roadmap).
+- 📦 **Inputs & outputs.** Send a directory in, get a directory out (content-addressed blobs);
+  logs and exit codes captured.
+- 🖥️ **Two GUIs + a CLI.** An operator console (submit/watch jobs + fleet), a per-node
+  console, and `hopper submit/jobs/result/...`.
+- ⬆️ **Opt-in auto-update, signed.** Tag a release; your fleet self-updates after Ed25519
+  signature + checksum verification.
+- 🏃 **Distributed CI.** Run your GitHub Actions jobs on your own nodes (ephemeral runners).
+- 📈 **Observability.** `/metrics` (Prometheus), structured logs, rate limiting, panic recovery.
 
 ## Quickstart
 

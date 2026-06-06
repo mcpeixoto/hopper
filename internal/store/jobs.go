@@ -110,6 +110,72 @@ func (s *Store) SubmitJob(spec JobSpec) (Job, error) {
 	return j, nil
 }
 
+// PurgeTerminalJobs deletes done/failed/cancelled jobs finished before cutoff,
+// along with their artifact rows. It returns the storage paths of blobs that are
+// no longer referenced by any remaining artifact (the caller deletes those files)
+// and the number of jobs removed.
+func (s *Store) PurgeTerminalJobs(cutoffISO string) (orphanBlobPaths []string, jobsDeleted int, err error) {
+	rows, err := s.db.Query(`
+		SELECT id FROM jobs
+		WHERE status IN ('done','failed','cancelled')
+		  AND finished_at IS NOT NULL AND finished_at < ?`, cutoffISO)
+	if err != nil {
+		return nil, 0, err
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return nil, 0, err
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	for _, id := range ids {
+		// Collect candidate blob paths for this job's artifacts.
+		ar, err := s.db.Query(`SELECT path FROM artifacts WHERE job_id = ?`, id)
+		if err != nil {
+			return orphanBlobPaths, jobsDeleted, err
+		}
+		var paths []string
+		for ar.Next() {
+			var p string
+			if err := ar.Scan(&p); err != nil {
+				ar.Close()
+				return orphanBlobPaths, jobsDeleted, err
+			}
+			paths = append(paths, p)
+		}
+		ar.Close()
+
+		if _, err := s.db.Exec(`DELETE FROM artifacts WHERE job_id = ?`, id); err != nil {
+			return orphanBlobPaths, jobsDeleted, err
+		}
+		if _, err := s.db.Exec(`DELETE FROM jobs WHERE id = ?`, id); err != nil {
+			return orphanBlobPaths, jobsDeleted, err
+		}
+		jobsDeleted++
+
+		// A blob is safe to delete only if no remaining artifact references it
+		// (content-addressed paths can be shared by dedup).
+		for _, p := range paths {
+			var n int
+			if err := s.db.QueryRow(`SELECT COUNT(*) FROM artifacts WHERE path = ?`, p).Scan(&n); err != nil {
+				return orphanBlobPaths, jobsDeleted, err
+			}
+			if n == 0 {
+				orphanBlobPaths = append(orphanBlobPaths, p)
+			}
+		}
+	}
+	return orphanBlobPaths, jobsDeleted, nil
+}
+
 // CountJobsByStatus returns the number of jobs in each status.
 func (s *Store) CountJobsByStatus() (map[string]int, error) {
 	rows, err := s.db.Query(`SELECT status, COUNT(*) FROM jobs GROUP BY status`)

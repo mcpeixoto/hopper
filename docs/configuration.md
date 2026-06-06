@@ -16,6 +16,7 @@ no config file.
 | `HOPPER_LEASE_SECONDS` | `120` | visibility timeout granted on claim |
 | `HOPPER_LONGPOLL_SECONDS` | `25` | how long `/api/jobs/claim` blocks |
 | `HOPPER_SUBMIT_RPM` | `0` | per-IP rate limit on submit + webhook (req/min; 0 = unlimited) |
+| `HOPPER_JOB_RETENTION_DAYS` | `0` | purge terminal jobs + orphaned blobs older than N days (0 = keep forever) |
 | `HOPPER_LOG_LEVEL` | `info` | `debug` / `info` / `warn` / `error` |
 | `HOPPER_LOG_FORMAT` | `text` | `text` or `json` (structured) |
 | `HOPPER_AUTOUPDATE` | _(off)_ | set to `1` to self-update from releases |
