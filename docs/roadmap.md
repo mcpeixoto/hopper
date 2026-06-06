@@ -33,10 +33,11 @@ See [docker-cache.md](docker-cache.md). Per-node caching via `HOPPER_PULL_POLICY
 ready-to-run `registry:2` pull-through cache (`deploy/registry/`) and a node setup helper
 (`scripts/setup-registry-mirror.sh`). **Still to do:** BuildKit cache for image-building jobs.
 
-## Signed releases
+## ✅ Signed releases — shipped
 
-Add minisign/cosign signatures to release artifacts and verify them in the updater before
-replacing a binary — closing the gap noted in [releases.md](releases.md).
+Ed25519-signed `checksums.txt` (stdlib, no cosign/minisign dep); the updater refuses to
+install a release that isn't validly signed when a public key is embedded. Setup in
+[releases.md](releases.md).
 
 ## Smaller items
 

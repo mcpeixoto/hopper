@@ -26,7 +26,14 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/mcpeixoto/hopper/internal/sign"
 )
+
+// SigningPublicKey is the hex Ed25519 public key releases are signed with. It is
+// set at build time via -ldflags "-X .../internal/updater.SigningPublicKey=<hex>".
+// When empty, signature verification is skipped (checksum-only).
+var SigningPublicKey = ""
 
 // Updater self-updates a single binary from GitHub releases.
 type Updater struct {
@@ -97,7 +104,7 @@ func (u *Updater) CheckOnce(ctx context.Context) (bool, string, error) {
 	}
 	log.Printf("updater: %s -> %s available, updating %s", u.Current, rel.TagName, u.BinaryName)
 
-	binURL, sumURL := "", ""
+	binURL, sumURL, sigURL := "", "", ""
 	want := u.assetName()
 	for _, a := range rel.Assets {
 		switch a.Name {
@@ -105,29 +112,48 @@ func (u *Updater) CheckOnce(ctx context.Context) (bool, string, error) {
 			binURL = a.URL
 		case "checksums.txt":
 			sumURL = a.URL
+		case "checksums.txt.sig":
+			sigURL = a.URL
 		}
 	}
 	if binURL == "" {
 		return false, rel.TagName, fmt.Errorf("no release asset %q for this platform", want)
+	}
+	if sumURL == "" {
+		return false, rel.TagName, fmt.Errorf("release has no checksums.txt; refusing to update")
+	}
+
+	sums, err := u.download(ctx, sumURL)
+	if err != nil {
+		return false, rel.TagName, err
+	}
+
+	// When a signing key is embedded, the checksums must carry a valid signature.
+	if SigningPublicKey != "" {
+		if sigURL == "" {
+			return false, rel.TagName, fmt.Errorf("release is unsigned but a signing key is configured; refusing to update")
+		}
+		sig, err := u.download(ctx, sigURL)
+		if err != nil {
+			return false, rel.TagName, err
+		}
+		if !sign.Verify(SigningPublicKey, sums, strings.TrimSpace(string(sig))) {
+			return false, rel.TagName, fmt.Errorf("checksums.txt signature INVALID; refusing to update")
+		}
+		log.Printf("updater: release signature verified")
 	}
 
 	data, err := u.download(ctx, binURL)
 	if err != nil {
 		return false, rel.TagName, err
 	}
-	if sumURL != "" {
-		sums, err := u.download(ctx, sumURL)
-		if err != nil {
-			return false, rel.TagName, err
-		}
-		want, ok := ParseChecksum(string(sums), u.assetName())
-		if !ok {
-			return false, rel.TagName, fmt.Errorf("checksum for %q missing", u.assetName())
-		}
-		got := sha256.Sum256(data)
-		if hex.EncodeToString(got[:]) != want {
-			return false, rel.TagName, fmt.Errorf("checksum mismatch for %q", u.assetName())
-		}
+	wantSum, ok := ParseChecksum(string(sums), u.assetName())
+	if !ok {
+		return false, rel.TagName, fmt.Errorf("checksum for %q missing", u.assetName())
+	}
+	got := sha256.Sum256(data)
+	if hex.EncodeToString(got[:]) != wantSum {
+		return false, rel.TagName, fmt.Errorf("checksum mismatch for %q", u.assetName())
 	}
 
 	if err := ReplaceExecutable(data); err != nil {

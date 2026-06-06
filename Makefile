@@ -2,7 +2,11 @@
 
 # Version is derived from git tags (e.g. v0.1.0), falling back to "dev".
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS := -s -w -X github.com/mcpeixoto/hopper/internal/version.Version=$(VERSION)
+# Optional: embed the release signing public key so binaries verify update signatures.
+HOPPER_SIGNING_PUBKEY ?=
+LDFLAGS := -s -w \
+	-X github.com/mcpeixoto/hopper/internal/version.Version=$(VERSION) \
+	-X github.com/mcpeixoto/hopper/internal/updater.SigningPublicKey=$(HOPPER_SIGNING_PUBKEY)
 
 GO       ?= go
 BIN      := bin

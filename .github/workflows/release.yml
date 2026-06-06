@@ -21,7 +21,16 @@ jobs:
           go-version: "1.22"
           cache: true
       - name: Cross-compile + checksums
-        run: make dist VERSION=${{ github.ref_name }}
+        run: make dist VERSION=${{ github.ref_name }} HOPPER_SIGNING_PUBKEY=${{ vars.HOPPER_SIGNING_PUBKEY }}
+      - name: Sign checksums (if a signing key is configured)
+        env:
+          HOPPER_SIGNING_KEY: ${{ secrets.HOPPER_SIGNING_KEY }}
+        run: |
+          if [ -n "$HOPPER_SIGNING_KEY" ]; then
+            go run ./cmd/hopper-sign sign dist/checksums.txt
+          else
+            echo "HOPPER_SIGNING_KEY not set — publishing unsigned release"
+          fi
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -30,6 +39,7 @@ jobs:
             dist/hopperd_*
             dist/hopper-agent_*
             dist/checksums.txt
+            dist/checksums.txt.sig
 
   image:
     runs-on: ubuntu-latest

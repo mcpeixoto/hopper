@@ -44,16 +44,38 @@ For agents installed via systemd with `Restart=always`, the re-exec (or a clean 
 up the new binary immediately. The result: **tag a release and your whole fleet converges**,
 no manual SSH.
 
-## Trust model for updates
+## Signed releases (Ed25519)
 
-Releases are produced by CI, served by GitHub over HTTPS, and integrity-checked against
-`checksums.txt` fetched over the same TLS channel. This protects against corruption and
-truncation. It does **not** by itself protect against a compromised GitHub account or CI
-pipeline. For higher assurance, sign artifacts with [minisign] or [cosign] and verify the
-signature in the updater before replacing the binary (planned — see [roadmap.md](roadmap.md)).
+Hopper can cryptographically sign releases so the updater only installs binaries whose
+checksums were signed by *your* key — protecting against a tampered release even if an
+attacker can serve assets. It uses stdlib Ed25519 (no cosign/minisign dependency).
 
-Pin to manual updates by leaving `HOPPER_AUTOUPDATE` unset and upgrading binaries yourself
-(download from Releases, or `docker compose pull && up -d` for the server).
+**Enable it once:**
 
-[minisign]: https://jedisct1.github.io/minisign/
-[cosign]: https://docs.sigstore.dev/cosign/overview/
+1. Generate a keypair:
+   ```bash
+   go run ./cmd/hopper-sign keygen
+   ```
+2. Add the **private** key to the repo's GitHub Actions secrets as `HOPPER_SIGNING_KEY`.
+3. Add the **public** key as the repo/Actions variable `HOPPER_SIGNING_PUBKEY`.
+
+From then on, each release:
+- the workflow signs `checksums.txt` → `checksums.txt.sig` with the private key;
+- released binaries are built with the public key embedded
+  (`-X .../internal/updater.SigningPublicKey=<pub>`).
+
+When a public key is embedded, the updater **requires** a valid `checksums.txt.sig` before
+replacing the binary — an unsigned or tampered release is refused. When no key is embedded
+(the default), it falls back to checksum-only verification over HTTPS.
+
+Verify a release by hand:
+```bash
+go run ./cmd/hopper-sign verify <PUBKEY> checksums.txt checksums.txt.sig
+```
+
+## What's still trusted
+
+Even signed, releases trust the CI pipeline and your GitHub account that holds the secret.
+Keep the signing key in CI secrets only (never commit it). Pin to manual updates by leaving
+`HOPPER_AUTOUPDATE` unset and upgrading yourself (download from Releases, or
+`docker compose pull && up -d` for the server).
