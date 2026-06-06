@@ -27,12 +27,11 @@ mode on a CI-labelled node.
 **Still to do:** Docker-in-Docker / socket mount so container-based steps and `services:`
 work (v1 runs plain steps and most actions); GitHub App auth as an alternative to a PAT.
 
-## Docker image cache
+## ✅ Docker image cache — shipped
 
-- **Per-node:** the agent already avoids re-pulling present images (`if-not-present` policy).
-- **Shared:** run a `registry:2` pull-through cache near the fleet and point each node's
-  Docker daemon at it via `--registry-mirror`. First pull warms the cache; the rest come over
-  the LAN, dodging Docker Hub rate limits (which bite once nodes are ephemeral).
+See [docker-cache.md](docker-cache.md). Per-node caching via `HOPPER_PULL_POLICY`, plus a
+ready-to-run `registry:2` pull-through cache (`deploy/registry/`) and a node setup helper
+(`scripts/setup-registry-mirror.sh`). **Still to do:** BuildKit cache for image-building jobs.
 
 ## Signed releases
 

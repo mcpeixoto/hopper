@@ -1,0 +1,19 @@
+# Docker Hub pull-through cache for the Hopper fleet.
+#
+#   cd deploy/registry && docker compose up -d
+#
+# Then point each node's Docker daemon at it (see scripts/setup-registry-mirror.sh
+# or docs/docker-cache.md). Front it with TLS if nodes reach it over the internet.
+services:
+  registry-cache:
+    image: registry:2
+    container_name: hopper-registry-cache
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./config.yml:/etc/docker/registry/config.yml:ro
+      - registry_cache:/var/lib/registry
+
+volumes:
+  registry_cache:

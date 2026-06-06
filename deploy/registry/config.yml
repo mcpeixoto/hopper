@@ -1,0 +1,18 @@
+# registry:2 configured as a Docker Hub pull-through cache.
+# Nodes pointed at this mirror pull images via the cache (LAN/VPS), warming it on
+# the first pull and dodging Docker Hub rate limits thereafter.
+version: 0.1
+log:
+  level: info
+storage:
+  filesystem:
+    rootdirectory: /var/lib/registry
+  delete:
+    enabled: true
+http:
+  addr: :5000
+proxy:
+  remoteurl: https://registry-1.docker.io
+  # Optional: authenticate to Docker Hub to raise pull limits.
+  # username: <dockerhub-user>
+  # password: <dockerhub-token>
