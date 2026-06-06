@@ -46,6 +46,9 @@ type AgentConfig struct {
 	CPULimit     string   // docker --cpus value ("" = unset)
 	MemLimit     string   // docker --memory value ("" = unset)
 	PollInterval int      // seconds between claim attempts when idle
+	LocalAddr    string   // bind address for the local node GUI / status API
+	WorkRoot     string   // base directory for per-job work dirs
+	AutoUpdate   bool     // self-update to the latest release when enabled
 }
 
 // LoadAgent reads the worker-agent configuration from the environment.
@@ -61,6 +64,9 @@ func LoadAgent() AgentConfig {
 		CPULimit:     env("HOPPER_CPU", ""),
 		MemLimit:     env("HOPPER_MEM", ""),
 		PollInterval: envInt("HOPPER_POLL_INTERVAL", 2),
+		LocalAddr:    env("HOPPER_AGENT_ADDR", "127.0.0.1:8765"),
+		WorkRoot:     env("HOPPER_WORK_ROOT", "data/work"),
+		AutoUpdate:   env("HOPPER_AUTOUPDATE", "") != "",
 	}
 }
 
