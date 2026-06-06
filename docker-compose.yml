@@ -1,0 +1,31 @@
+# Run the Hopper control plane.
+#
+#   cp .env.example .env   # then edit the tokens
+#   docker compose up -d
+#
+# The control plane listens on :8080. Put it behind a reverse proxy (Caddy,
+# nginx, Traefik, …) to terminate TLS for a public hostname your worker nodes
+# can reach.
+services:
+  hopperd:
+    build:
+      context: .
+      args:
+        VERSION: ${HOPPER_VERSION:-dev}
+    image: ghcr.io/mcpeixoto/hopper:latest
+    container_name: hopperd
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - HOPPER_PORT=8080
+      - HOPPER_DB_PATH=data/hopper.db
+      - HOPPER_ARTIFACT_DIR=data/artifacts
+      - HOPPER_OPERATOR_TOKEN=${HOPPER_OPERATOR_TOKEN}
+      - HOPPER_NODE_TOKEN=${HOPPER_NODE_TOKEN}
+      - HOPPER_CORS_ORIGINS=${HOPPER_CORS_ORIGINS:-http://localhost:5173}
+    volumes:
+      - hopper_data:/app/data
+
+volumes:
+  hopper_data:

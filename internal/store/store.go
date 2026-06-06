@@ -11,6 +11,8 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"os"
+	"path/filepath"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -79,6 +81,14 @@ type Store struct {
 // Open opens (creating if needed) the SQLite database at path and applies the
 // schema. Pass ":memory:" for an ephemeral test database.
 func Open(path string) (*Store, error) {
+	// Ensure the parent directory exists for a file-backed database.
+	if path != ":memory:" && path != "" {
+		if dir := filepath.Dir(path); dir != "." && dir != "/" {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				return nil, err
+			}
+		}
+	}
 	db, err := sql.Open("sqlite", path+"?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=ON")
 	if err != nil {
 		return nil, err
