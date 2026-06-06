@@ -167,6 +167,11 @@ pull queue is the right tool. More in the [architecture docs](docs/architecture.
 [Quickstart](docs/quickstart.md) ·
 [Control plane](docs/server.md) ·
 [Worker nodes](docs/client.md) ·
+[CLI](docs/cli.md) ·
+[Scheduled jobs](docs/schedules.md) ·
+[Webhooks](docs/notifications.md) ·
+[GitHub Actions](docs/github-actions.md) ·
+[Docker cache](docs/docker-cache.md) ·
 [API reference](docs/api.md) ·
 [Configuration](docs/configuration.md) ·
 [Releases & auto-update](docs/releases.md) ·
