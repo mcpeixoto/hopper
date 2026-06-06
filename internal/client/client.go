@@ -121,6 +121,37 @@ func (c *Client) ReleaseJob(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodPost, "/api/jobs/"+id+"/release", nil, nil)
 }
 
+// Schedule mirrors the control plane's schedule JSON.
+type Schedule struct {
+	ID      string  `json:"id"`
+	Name    string  `json:"name,omitempty"`
+	Cron    string  `json:"cron"`
+	Spec    JobSpec `json:"spec"`
+	Enabled bool    `json:"enabled"`
+	LastRun string  `json:"last_run,omitempty"`
+	NextRun string  `json:"next_run"`
+}
+
+// CreateSchedule registers a recurring job (cron + spec).
+func (c *Client) CreateSchedule(ctx context.Context, name, cronExpr string, spec JobSpec) (Schedule, error) {
+	var sc Schedule
+	body := map[string]any{"name": name, "cron": cronExpr, "spec": spec}
+	err := c.do(ctx, http.MethodPost, "/api/schedules", body, &sc)
+	return sc, err
+}
+
+// ListSchedules lists recurring jobs.
+func (c *Client) ListSchedules(ctx context.Context) ([]Schedule, error) {
+	var scs []Schedule
+	err := c.do(ctx, http.MethodGet, "/api/schedules", nil, &scs)
+	return scs, err
+}
+
+// DeleteSchedule removes a recurring job.
+func (c *Client) DeleteSchedule(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodDelete, "/api/schedules/"+id, nil, nil)
+}
+
 // --- worker plane (node) ---
 
 // RegisterWorker registers this node and returns its worker record.

@@ -40,6 +40,8 @@ func main() {
 		err = cmdSimple(ctx, os.Args[2:], c.CancelJob, "cancelled")
 	case "nodes":
 		err = cmdNodes(ctx, c)
+	case "schedule":
+		err = cmdSchedule(ctx, c, os.Args[2:])
 	case "version":
 		fmt.Println(version.Version)
 	default:
@@ -180,6 +182,54 @@ func cmdResult(ctx context.Context, c *client.Client, args []string) error {
 	return nil
 }
 
+func cmdSchedule(ctx context.Context, c *client.Client, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: hopper schedule list | create | rm <id>")
+	}
+	switch args[0] {
+	case "list":
+		scs, err := c.ListSchedules(ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%-20s %-14s %-22s %s\n", "ID", "CRON", "IMAGE", "NEXT RUN")
+		for _, s := range scs {
+			fmt.Printf("%-20s %-14s %-22s %s\n", s.ID, s.Cron, trunc(s.Spec.Image, 22), s.NextRun)
+		}
+		return nil
+	case "rm":
+		if len(args) != 2 {
+			return fmt.Errorf("usage: hopper schedule rm <id>")
+		}
+		if err := c.DeleteSchedule(ctx, args[1]); err != nil {
+			return err
+		}
+		fmt.Println("deleted")
+		return nil
+	case "create":
+		fs := flag.NewFlagSet("schedule create", flag.ExitOnError)
+		name := fs.String("name", "", "schedule name")
+		cronExpr := fs.String("cron", "", "cron expression, e.g. '0 2 * * *' (required)")
+		image := fs.String("image", "", "container image (required)")
+		cmd := fs.String("cmd", "", "command (space-separated)")
+		labels := fs.String("labels", "", "required node labels (comma-separated)")
+		_ = fs.Parse(args[1:])
+		if *cronExpr == "" || *image == "" {
+			return fmt.Errorf("--cron and --image are required")
+		}
+		sc, err := c.CreateSchedule(ctx, *name, *cronExpr, client.JobSpec{
+			Image: *image, Command: fields(*cmd), Labels: csv(*labels),
+		})
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%s (next run %s)\n", sc.ID, sc.NextRun)
+		return nil
+	default:
+		return fmt.Errorf("unknown schedule subcommand %q", args[0])
+	}
+}
+
 func cmdNodes(ctx context.Context, c *client.Client) error {
 	workers, err := c.ListWorkers(ctx)
 	if err != nil {
@@ -213,6 +263,7 @@ func usage() {
   hopper result [-o DIR] <id>
   hopper cancel <id>
   hopper nodes
+  hopper schedule list | create --cron "0 2 * * *" --image IMG [--cmd ...] | rm <id>
   hopper version
 
 Env: HOPPER_CONTROL_URL, HOPPER_OPERATOR_TOKEN`)

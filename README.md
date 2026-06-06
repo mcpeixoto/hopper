@@ -60,7 +60,10 @@ If your workload fits in a container and you'd rather not run Kubernetes, Hopper
 - 🗃️ **SQLite *is* the queue.** Durable FIFO + priority + leases, zero extra services.
 - ♻️ **Self-healing.** A claimed job has a lease; if a node dies, the reaper requeues the job.
 - 🐳 **Runs anything.** If it's a Docker image, Hopper can run it — with CPU/memory caps and
-  `--network none` by default.
+  `--network none` by default. Pull private images with registry login.
+- ⚡ **Parallel & targeted.** Each node runs N jobs at once (`HOPPER_CONCURRENCY`); route work
+  with labels, including auto `os:`/`arch:` for mixed-arch fleets.
+- ⏰ **Built-in cron.** Schedule recurring jobs — no external cron, no extra service.
 - 📦 **Inputs & outputs.** Send a directory in, get a directory out (content-addressed blobs);
   logs and exit codes captured.
 - 🖥️ **Two GUIs + a CLI.** An operator console (submit/watch jobs + fleet), a per-node

@@ -18,6 +18,7 @@ import (
 	gh "github.com/mcpeixoto/hopper/internal/github"
 	"github.com/mcpeixoto/hopper/internal/handler"
 	"github.com/mcpeixoto/hopper/internal/reaper"
+	"github.com/mcpeixoto/hopper/internal/scheduler"
 	"github.com/mcpeixoto/hopper/internal/store"
 	"github.com/mcpeixoto/hopper/internal/updater"
 	"github.com/mcpeixoto/hopper/internal/version"
@@ -89,6 +90,11 @@ func main() {
 	stopReaper := make(chan struct{})
 	go reaper.Run(db, time.Duration(cfg.LeaseSeconds)*time.Second, stopReaper)
 	defer close(stopReaper)
+
+	// Scheduler: fire recurring (cron) jobs.
+	stopScheduler := make(chan struct{})
+	go scheduler.Run(db, stopScheduler)
+	defer close(stopScheduler)
 
 	// Optional retention: purge old terminal jobs + their orphaned blobs.
 	if cfg.RetentionDays > 0 {

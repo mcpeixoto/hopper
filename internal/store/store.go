@@ -68,6 +68,19 @@ CREATE TABLE IF NOT EXISTS artifacts (
     size_bytes   INTEGER NOT NULL DEFAULT 0,
     created_at   TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS schedules (
+    id         TEXT PRIMARY KEY,
+    name       TEXT,
+    cron       TEXT NOT NULL,
+    spec_json  TEXT NOT NULL,
+    enabled    INTEGER NOT NULL DEFAULT 1,
+    last_run   TEXT,
+    next_run   TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_schedules_next ON schedules(enabled, next_run);
 `
 
 // ErrNotFound is returned when a requested row does not exist.
