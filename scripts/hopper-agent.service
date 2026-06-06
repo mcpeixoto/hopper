@@ -1,0 +1,19 @@
+# Reference systemd unit for the Hopper worker agent.
+# The install-worker.sh script writes this automatically; included here for manual setups.
+#
+#   sudo cp scripts/hopper-agent.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now hopper-agent
+#
+[Unit]
+Description=Hopper worker agent
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+EnvironmentFile=/etc/hopper/agent.env
+ExecStart=/usr/local/bin/hopper-agent
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
