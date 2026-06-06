@@ -215,13 +215,17 @@ func (a *Agent) runJob(ctx context.Context, job *client.Job) {
 		errMsg = "non-zero exit"
 	}
 
-	// Upload logs and (if produced) the output tarball, then report.
-	logsID := a.uploadLogs(ctx, job.ID, res.Logs)
+	// Report on a fresh context so that a shutdown (which cancels ctx and kills
+	// the container) still uploads results and completes the job — letting it
+	// requeue immediately instead of waiting for the lease to expire.
+	reportCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	logsID := a.uploadLogs(reportCtx, job.ID, res.Logs)
 	outputID := ""
 	if status == "done" && !archive.IsEmptyDir(outDir) {
-		outputID = a.uploadOutput(ctx, job.ID, outDir)
+		outputID = a.uploadOutput(reportCtx, job.ID, outDir)
 	}
-	a.reportResult(ctx, job, status, exit, outputID, logsID, errMsg)
+	a.reportResult(reportCtx, job, status, exit, outputID, logsID, errMsg)
 
 	a.mu.Lock()
 	a.status.LastLog = tail(res.Logs, 4000)

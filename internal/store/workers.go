@@ -119,6 +119,25 @@ func (s *Store) MarkStaleWorkers(staleAfter, deadAfter time.Duration) (int, erro
 	return int(n), nil
 }
 
+// CountWorkersByStatus returns the number of workers in each status.
+func (s *Store) CountWorkersByStatus() (map[string]int, error) {
+	rows, err := s.db.Query(`SELECT status, COUNT(*) FROM workers GROUP BY status`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var st string
+		var n int
+		if err := rows.Scan(&st, &n); err != nil {
+			return nil, err
+		}
+		out[st] = n
+	}
+	return out, rows.Err()
+}
+
 const workerSelect = `
 	SELECT id, hostname, labels_json, status, COALESCE(last_heartbeat,''),
 	    registered_at, updated_at

@@ -8,23 +8,31 @@ import (
 
 // Router builds the control-plane HTTP handler: routes wrapped with CORS and the
 // appropriate bearer-token guard (operator for submit/admin, node for the worker
-// plane). Pass empty tokens to disable auth in development.
+// plane). Pass empty tokens to disable auth in development. submitRPM limits
+// job-submission/webhook requests per client IP (<=0 disables).
 func Router(api *API, operatorToken, nodeToken string, corsOrigins []string) http.Handler {
+	return RouterWithLimit(api, operatorToken, nodeToken, corsOrigins, 0)
+}
+
+// RouterWithLimit is Router with a per-IP submission rate limit.
+func RouterWithLimit(api *API, operatorToken, nodeToken string, corsOrigins []string, submitRPM int) http.Handler {
 	operator := middleware.RequireToken(operatorToken)
 	node := middleware.RequireToken(nodeToken)
+	limit := middleware.NewRateLimiter(submitRPM, submitRPM) // burst == rpm
 
 	mux := http.NewServeMux()
 
-	// Health — no auth.
+	// Health + metrics — no auth.
 	mux.HandleFunc("GET /health", api.Health)
+	mux.HandleFunc("GET /metrics", api.Metrics)
 
 	// GitHub Actions webhook — authenticated by HMAC signature, not a bearer token.
 	if api.GitHub != nil {
-		mux.HandleFunc("POST /api/github/webhook", api.GitHubWebhook)
+		mux.Handle("POST /api/github/webhook", limit.Middleware(http.HandlerFunc(api.GitHubWebhook)))
 	}
 
 	// Operator / submission plane.
-	mux.Handle("POST /api/jobs", operator(http.HandlerFunc(api.SubmitJob)))
+	mux.Handle("POST /api/jobs", limit.Middleware(operator(http.HandlerFunc(api.SubmitJob))))
 	mux.Handle("GET /api/jobs", operator(http.HandlerFunc(api.ListJobs)))
 	mux.Handle("GET /api/jobs/{id}", operator(http.HandlerFunc(api.GetJob)))
 	mux.Handle("POST /api/jobs/{id}/cancel", operator(http.HandlerFunc(api.CancelJob)))
@@ -43,5 +51,11 @@ func Router(api *API, operatorToken, nodeToken string, corsOrigins []string) htt
 	mux.Handle("POST /api/workers/register", node(http.HandlerFunc(api.RegisterWorker)))
 	mux.Handle("POST /api/workers/{id}/heartbeat", node(http.HandlerFunc(api.Heartbeat)))
 
-	return middleware.CORS(corsOrigins)(mux)
+	// Global middleware, outermost first: recover → request log → security headers → CORS.
+	return middleware.Chain(mux,
+		middleware.Recover,
+		middleware.RequestLog,
+		middleware.SecurityHeaders,
+		middleware.CORS(corsOrigins),
+	)
 }

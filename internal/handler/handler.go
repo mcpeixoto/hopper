@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mcpeixoto/hopper/internal/blob"
+	"github.com/mcpeixoto/hopper/internal/metrics"
 	"github.com/mcpeixoto/hopper/internal/store"
 )
 
@@ -45,7 +46,26 @@ func (a *API) SubmitJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	metrics.JobSubmitted()
 	writeJSON(w, http.StatusCreated, job)
+}
+
+// Metrics exposes Prometheus-format counters and gauges. No auth (bind/proxy it
+// privately if the numbers are sensitive).
+func (a *API) Metrics(w http.ResponseWriter, r *http.Request) {
+	gauges := map[string]float64{}
+	if counts, err := a.Store.CountJobsByStatus(); err == nil {
+		for st, n := range counts {
+			gauges["hopper_jobs{status=\""+st+"\"}"] = float64(n)
+		}
+	}
+	if counts, err := a.Store.CountWorkersByStatus(); err == nil {
+		for st, n := range counts {
+			gauges["hopper_workers{status=\""+st+"\"}"] = float64(n)
+		}
+	}
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+	metrics.WritePrometheus(w, gauges)
 }
 
 // ListJobs returns jobs, optionally filtered by ?status=. Operator auth.
@@ -123,6 +143,7 @@ func (a *API) ClaimJob(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if job != nil {
+			metrics.JobClaimed()
 			writeJSON(w, http.StatusOK, job)
 			return
 		}
@@ -165,6 +186,7 @@ func (a *API) CompleteJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	metrics.JobCompleted(req.Status)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 

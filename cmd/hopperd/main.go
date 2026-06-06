@@ -5,9 +5,11 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,9 +23,30 @@ import (
 	"github.com/mcpeixoto/hopper/internal/version"
 )
 
+func setupLogging(level, format string) {
+	var lvl slog.Level
+	switch strings.ToLower(level) {
+	case "debug":
+		lvl = slog.LevelDebug
+	case "warn":
+		lvl = slog.LevelWarn
+	case "error":
+		lvl = slog.LevelError
+	default:
+		lvl = slog.LevelInfo
+	}
+	opts := &slog.HandlerOptions{Level: lvl}
+	var h slog.Handler = slog.NewTextHandler(os.Stderr, opts)
+	if strings.ToLower(format) == "json" {
+		h = slog.NewJSONHandler(os.Stderr, opts)
+	}
+	slog.SetDefault(slog.New(h))
+}
+
 func main() {
 	cfg := config.Load()
-	log.Printf("hopperd %s starting", version.Version)
+	setupLogging(cfg.LogLevel, cfg.LogFormat)
+	slog.Info("hopperd starting", "version", version.Version, "port", cfg.Port)
 
 	db, err := store.Open(cfg.DBPath)
 	if err != nil {
@@ -32,7 +55,7 @@ func main() {
 	defer db.Close()
 
 	if cfg.OperatorToken == "" || cfg.NodeToken == "" {
-		log.Printf("WARNING: HOPPER_OPERATOR_TOKEN / HOPPER_NODE_TOKEN unset — auth disabled (dev mode)")
+		slog.Warn("auth disabled (dev mode): HOPPER_OPERATOR_TOKEN / HOPPER_NODE_TOKEN unset")
 	}
 
 	blobs, err := blob.New(cfg.ArtifactDir)
@@ -56,10 +79,9 @@ func main() {
 			TriggerLabels: cfg.RunnerTriggerLabels,
 			JobLabels:     cfg.RunnerJobLabels,
 		}
-		log.Printf("github actions runner integration enabled (image=%s, trigger=%v)",
-			cfg.RunnerImage, cfg.RunnerTriggerLabels)
+		slog.Info("github actions runner integration enabled", "image", cfg.RunnerImage, "trigger", cfg.RunnerTriggerLabels)
 		if cfg.GitHubWebhookSecret == "" {
-			log.Printf("WARNING: HOPPER_GITHUB_WEBHOOK_SECRET unset — webhook signature verification disabled")
+			slog.Warn("HOPPER_GITHUB_WEBHOOK_SECRET unset — webhook signature verification disabled")
 		}
 	}
 
@@ -72,12 +94,12 @@ func main() {
 	if cfg.AutoUpdate {
 		up := updater.New(version.Repo, "hopperd", version.Version)
 		go up.Run(context.Background(), time.Duration(cfg.UpdateIntervalM)*time.Minute)
-		log.Printf("self-update enabled (every %dm)", cfg.UpdateIntervalM)
+		slog.Info("self-update enabled", "interval_min", cfg.UpdateIntervalM)
 	}
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           handler.Router(api, cfg.OperatorToken, cfg.NodeToken, cfg.CORSOrigins),
+		Handler:           handler.RouterWithLimit(api, cfg.OperatorToken, cfg.NodeToken, cfg.CORSOrigins, cfg.SubmitRPM),
 		ReadHeaderTimeout: 5 * time.Second,
 		// No WriteTimeout: /api/jobs/claim is a long-poll that intentionally
 		// holds the connection open; per-request deadlines guard it instead.
@@ -85,7 +107,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("hopperd listening on :%s (db=%s)", cfg.Port, cfg.DBPath)
+		slog.Info("hopperd listening", "addr", ":"+cfg.Port, "db", cfg.DBPath)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server: %v", err)
 		}

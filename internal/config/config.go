@@ -19,6 +19,9 @@ type Config struct {
 	CORSOrigins     []string // allowed browser origins for the GUI
 	LeaseSeconds    int      // visibility timeout granted on claim
 	LongPollSeconds int      // how long /api/jobs/claim blocks waiting for work
+	SubmitRPM       int      // per-IP rate limit for submit/webhook (<=0 = unlimited)
+	LogLevel        string   // debug | info | warn | error
+	LogFormat       string   // text | json
 	AutoUpdate      bool     // self-update to the latest release when enabled
 	UpdateIntervalM int      // minutes between self-update checks
 
@@ -41,6 +44,9 @@ func Load() Config {
 		CORSOrigins:     splitList(env("HOPPER_CORS_ORIGINS", "http://localhost:5173")),
 		LeaseSeconds:    envInt("HOPPER_LEASE_SECONDS", 120),
 		LongPollSeconds: envInt("HOPPER_LONGPOLL_SECONDS", 25),
+		SubmitRPM:       envInt("HOPPER_SUBMIT_RPM", 0),
+		LogLevel:        env("HOPPER_LOG_LEVEL", "info"),
+		LogFormat:       env("HOPPER_LOG_FORMAT", "text"),
 		AutoUpdate:      env("HOPPER_AUTOUPDATE", "") != "",
 		UpdateIntervalM: envInt("HOPPER_UPDATE_INTERVAL_MIN", 60),
 

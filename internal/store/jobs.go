@@ -48,10 +48,30 @@ type JobSpec struct {
 	Paused bool `json:"paused"`
 }
 
+// Validation limits for a submitted job.
+const (
+	maxImageLen   = 512
+	maxCommandLen = 4096
+	maxEnvVars    = 256
+	maxLabels     = 64
+)
+
 // SubmitJob inserts a new queued job and returns it.
 func (s *Store) SubmitJob(spec JobSpec) (Job, error) {
 	if spec.Image == "" {
 		return Job{}, errors.New("image is required")
+	}
+	if len(spec.Image) > maxImageLen {
+		return Job{}, errors.New("image name too long")
+	}
+	if len(spec.Command) > maxCommandLen {
+		return Job{}, errors.New("command has too many arguments")
+	}
+	if len(spec.Env) > maxEnvVars {
+		return Job{}, errors.New("too many env vars")
+	}
+	if len(spec.Labels) > maxLabels {
+		return Job{}, errors.New("too many labels")
 	}
 	if spec.TimeoutS <= 0 {
 		spec.TimeoutS = 3600
@@ -88,6 +108,25 @@ func (s *Store) SubmitJob(spec JobSpec) (Job, error) {
 		return Job{}, err
 	}
 	return j, nil
+}
+
+// CountJobsByStatus returns the number of jobs in each status.
+func (s *Store) CountJobsByStatus() (map[string]int, error) {
+	rows, err := s.db.Query(`SELECT status, COUNT(*) FROM jobs GROUP BY status`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var st string
+		var n int
+		if err := rows.Scan(&st, &n); err != nil {
+			return nil, err
+		}
+		out[st] = n
+	}
+	return out, rows.Err()
 }
 
 // ReleaseJob moves a paused job into the queue so workers can claim it. Used

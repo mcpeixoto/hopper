@@ -58,7 +58,14 @@ func main() {
 
 	select {
 	case <-ctx.Done():
-		log.Print("shutdown signal received, draining")
+		log.Print("shutdown signal received, draining current job")
+		// Give the agent time to report the in-flight job (so it requeues fast)
+		// before we exit. ag.Run returns once the current job is reported.
+		select {
+		case <-errc:
+		case <-time.After(45 * time.Second):
+			log.Print("drain timed out")
+		}
 	case err := <-errc:
 		if err != nil && err != context.Canceled {
 			log.Printf("agent stopped: %v", err)

@@ -15,6 +15,12 @@ cannot submit them. If a token is unset on the server, that plane's auth is **di
 ### `GET /health`
 No auth. → `200 {"status":"ok","ts":"..."}`
 
+### `GET /metrics`
+No auth. Prometheus text format: cumulative counters
+(`hopper_jobs_submitted_total`, `…_claimed_total`, `…_completed_total`, `…_failed_total`)
+plus gauges (`hopper_jobs{status="…"}`, `hopper_workers{status="…"}`). Proxy it privately
+if the numbers are sensitive.
+
 ## Operator plane
 
 ### `POST /api/jobs` — submit a job

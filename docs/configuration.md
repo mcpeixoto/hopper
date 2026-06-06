@@ -15,6 +15,9 @@ no config file.
 | `HOPPER_CORS_ORIGINS` | `http://localhost:5173` | comma-separated browser origins for the console |
 | `HOPPER_LEASE_SECONDS` | `120` | visibility timeout granted on claim |
 | `HOPPER_LONGPOLL_SECONDS` | `25` | how long `/api/jobs/claim` blocks |
+| `HOPPER_SUBMIT_RPM` | `0` | per-IP rate limit on submit + webhook (req/min; 0 = unlimited) |
+| `HOPPER_LOG_LEVEL` | `info` | `debug` / `info` / `warn` / `error` |
+| `HOPPER_LOG_FORMAT` | `text` | `text` or `json` (structured) |
 | `HOPPER_AUTOUPDATE` | _(off)_ | set to `1` to self-update from releases |
 | `HOPPER_UPDATE_INTERVAL_MIN` | `60` | minutes between update checks |
 
