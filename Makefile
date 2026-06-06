@@ -12,18 +12,21 @@ GO       ?= go
 BIN      := bin
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 
-.PHONY: all build server agent test vet fmt fmt-check lint tidy clean run-server run-agent dist
+.PHONY: all build server agent cli test vet fmt fmt-check lint tidy clean run-server run-agent dist
 
 all: build
 
-## build: compile hopperd and hopper-agent for the host platform
-build: server agent
+## build: compile hopperd, hopper-agent and the hopper CLI for the host platform
+build: server agent cli
 
 server:
 	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN)/hopperd ./cmd/hopperd
 
 agent:
 	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN)/hopper-agent ./cmd/hopper-agent
+
+cli:
+	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN)/hopper ./cmd/hopper
 
 ## test: run the full test suite
 test:
@@ -58,6 +61,7 @@ dist:
 		echo "building $$os/$$arch"; \
 		GOOS=$$os GOARCH=$$arch CGO_ENABLED=0 $(GO) build -ldflags "$(LDFLAGS)" -o dist/hopperd_$${os}_$${arch} ./cmd/hopperd; \
 		GOOS=$$os GOARCH=$$arch CGO_ENABLED=0 $(GO) build -ldflags "$(LDFLAGS)" -o dist/hopper-agent_$${os}_$${arch} ./cmd/hopper-agent; \
+		GOOS=$$os GOARCH=$$arch CGO_ENABLED=0 $(GO) build -ldflags "$(LDFLAGS)" -o dist/hopper_$${os}_$${arch} ./cmd/hopper; \
 	done
 	@cd dist && sha256sum * > checksums.txt && echo "wrote dist/checksums.txt"
 

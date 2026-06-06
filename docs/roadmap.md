@@ -41,10 +41,11 @@ install a release that isn't validly signed when a public key is embedded. Setup
 
 ## Smaller items
 
-- Operator CLI (`hopper submit`, `hopper jobs`, `hopper nodes`) built on `internal/client`.
-- Job logs as a first-class artifact with `GET /api/jobs/{id}/logs` streaming.
-- Server-advertised target version so agents converge to the server's version, not just the
-  latest tag.
+- ✅ Operator CLI (`hopper submit/jobs/get/logs/result/nodes/cancel`) — see [cli.md](cli.md).
+- ✅ Job logs + outputs as first-class artifacts (`GET /api/jobs/{id}/logs` and `/result`).
+- **Live log streaming** while a job runs (today logs arrive at completion).
+- **Server-advertised target version** so agents converge to the server's version, not just
+  the latest published tag.
 - Optional Postgres backend for the control plane (same DDL) if SQLite's single writer ever
   becomes the bottleneck.
 

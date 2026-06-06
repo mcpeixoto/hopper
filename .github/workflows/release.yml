@@ -38,6 +38,7 @@ jobs:
           files: |
             dist/hopperd_*
             dist/hopper-agent_*
+            dist/hopper_*
             dist/checksums.txt
             dist/checksums.txt.sig
 

@@ -220,7 +220,17 @@ func (c *Client) DownloadInput(ctx context.Context, jobID string) (io.ReadCloser
 
 // DownloadResult streams a finished job's output blob (operator). Caller closes it.
 func (c *Client) DownloadResult(ctx context.Context, jobID string) (io.ReadCloser, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/api/jobs/"+jobID+"/result", nil)
+	return c.getStream(ctx, "/api/jobs/"+jobID+"/result")
+}
+
+// DownloadLogs streams a job's captured logs (operator). Caller closes it.
+func (c *Client) DownloadLogs(ctx context.Context, jobID string) (io.ReadCloser, error) {
+	return c.getStream(ctx, "/api/jobs/"+jobID+"/logs")
+}
+
+// getStream issues a GET and returns the body on 2xx (caller closes it).
+func (c *Client) getStream(ctx context.Context, path string) (io.ReadCloser, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+path, nil)
 	if err != nil {
 		return nil, err
 	}
