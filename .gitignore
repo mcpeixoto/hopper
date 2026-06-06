@@ -1,0 +1,24 @@
+# Build output
+/bin/
+/dist/
+hopperd
+hopper-agent
+
+# Runtime data (SQLite db, WAL, artifacts)
+/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+
+# Env
+.env
+.env.local
+
+# OS / editor
+.DS_Store
+*.swp

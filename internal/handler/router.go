@@ -1,0 +1,35 @@
+package handler
+
+import (
+	"net/http"
+
+	"github.com/mcpeixoto/hopper/internal/middleware"
+)
+
+// Router builds the control-plane HTTP handler: routes wrapped with CORS and the
+// appropriate bearer-token guard (operator for submit/admin, node for the worker
+// plane). Pass empty tokens to disable auth in development.
+func Router(api *API, operatorToken, nodeToken string, corsOrigins []string) http.Handler {
+	operator := middleware.RequireToken(operatorToken)
+	node := middleware.RequireToken(nodeToken)
+
+	mux := http.NewServeMux()
+
+	// Health — no auth.
+	mux.HandleFunc("GET /health", api.Health)
+
+	// Operator / submission plane.
+	mux.Handle("POST /api/jobs", operator(http.HandlerFunc(api.SubmitJob)))
+	mux.Handle("GET /api/jobs", operator(http.HandlerFunc(api.ListJobs)))
+	mux.Handle("GET /api/jobs/{id}", operator(http.HandlerFunc(api.GetJob)))
+	mux.Handle("POST /api/jobs/{id}/cancel", operator(http.HandlerFunc(api.CancelJob)))
+	mux.Handle("GET /api/workers", operator(http.HandlerFunc(api.ListWorkers)))
+
+	// Worker plane.
+	mux.Handle("POST /api/jobs/claim", node(http.HandlerFunc(api.ClaimJob)))
+	mux.Handle("POST /api/jobs/{id}/complete", node(http.HandlerFunc(api.CompleteJob)))
+	mux.Handle("POST /api/workers/register", node(http.HandlerFunc(api.RegisterWorker)))
+	mux.Handle("POST /api/workers/{id}/heartbeat", node(http.HandlerFunc(api.Heartbeat)))
+
+	return middleware.CORS(corsOrigins)(mux)
+}
