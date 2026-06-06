@@ -32,15 +32,17 @@ async function tick() {
     $("#s-labels").textContent = (st.labels && st.labels.length) ? st.labels.join(", ") : "general";
     $("#s-uptime").textContent = uptime(st.started_at);
 
-    if (st.current_job) {
-      const j = st.current_job;
-      $("#current").innerHTML = `<div class="job-row">
+    const running = st.running || [];
+    const cur = document.querySelector("#current-head");
+    if (cur) cur.textContent = `Running ${running.length}/${st.slots || 1}`;
+    if (running.length) {
+      $("#current").innerHTML = running.map((j) => `<div class="job-row">
         <span class="spinner"></span>
         <div>
           <div class="img mono">${esc(j.image)}</div>
           <div class="cmd mono">${esc((j.command || []).join(" ")) || "(default command)"}</div>
         </div>
-      </div>`;
+      </div>`).join("");
     } else {
       $("#current").innerHTML = `<p class="muted">Idle — waiting for work.</p>`;
     }

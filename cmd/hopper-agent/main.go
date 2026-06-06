@@ -14,6 +14,7 @@ import (
 
 	"github.com/mcpeixoto/hopper/internal/agent"
 	"github.com/mcpeixoto/hopper/internal/config"
+	"github.com/mcpeixoto/hopper/internal/runner"
 	"github.com/mcpeixoto/hopper/internal/updater"
 	"github.com/mcpeixoto/hopper/internal/version"
 )
@@ -30,6 +31,15 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	// Optional private-registry login so jobs can pull private images.
+	if cfg.RegistryAuth && cfg.RegistryUser != "" {
+		if err := runner.New("").Login(ctx, cfg.RegistryServer, cfg.RegistryUser, cfg.RegistryPass); err != nil {
+			log.Printf("registry login failed: %v", err)
+		} else {
+			log.Printf("logged in to registry %q as %s", cfg.RegistryServer, cfg.RegistryUser)
+		}
+	}
 
 	// Opt-in self-update: poll GitHub releases and re-exec on a newer version.
 	// systemd's Restart=always also relaunches the replaced binary after re-exec.

@@ -29,8 +29,13 @@ no config file.
 | `HOPPER_CONTROL_URL` | `http://localhost:8080` | control plane base URL (outbound only) |
 | `HOPPER_NODE_TOKEN` | _(empty)_ | bearer token presented on the worker plane |
 | `HOPPER_HOSTNAME` | OS hostname | identity reported on register |
-| `HOPPER_LABELS` | _(none)_ | comma-separated capabilities, e.g. `gpu,bigmem` |
+| `HOPPER_LABELS` | _(none)_ | comma-separated capabilities, e.g. `gpu,bigmem` (auto-adds `os:<goos>`, `arch:<goarch>`) |
+| `HOPPER_CONCURRENCY` | `1` | max jobs to run in parallel on this node |
 | `HOPPER_PULL_POLICY` | `if-not-present` | `always` or `if-not-present` |
+| `HOPPER_REGISTRY_AUTH` | _(off)_ | set to `1` to `docker login` from the vars below before pulling |
+| `HOPPER_REGISTRY_SERVER` | _(Docker Hub)_ | registry host, e.g. `ghcr.io` |
+| `HOPPER_REGISTRY_USER` | _(none)_ | registry username |
+| `HOPPER_REGISTRY_PASSWORD` | _(none)_ | registry password / token (sent on stdin, not argv) |
 | `HOPPER_ALLOW_NET` | _(off)_ | set to `1` to give job containers network (default `--network none`) |
 | `HOPPER_CPU` | _(unset)_ | docker `--cpus` cap per job, e.g. `2` |
 | `HOPPER_MEM` | _(unset)_ | docker `--memory` cap per job, e.g. `512m` |

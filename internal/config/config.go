@@ -71,10 +71,15 @@ type AgentConfig struct {
 	CPULimit        string   // docker --cpus value ("" = unset)
 	MemLimit        string   // docker --memory value ("" = unset)
 	PollInterval    int      // seconds between claim attempts when idle
+	Concurrency     int      // max jobs to run in parallel on this node
 	LocalAddr       string   // bind address for the local node GUI / status API
 	WorkRoot        string   // base directory for per-job work dirs
 	AutoUpdate      bool     // self-update to the latest release when enabled
 	UpdateIntervalM int      // minutes between self-update checks
+	RegistryAuth    bool     // log in to a private registry from env before pulling
+	RegistryServer  string   // registry host ("" = Docker Hub)
+	RegistryUser    string   // registry username
+	RegistryPass    string   // registry password / token
 }
 
 // LoadAgent reads the worker-agent configuration from the environment.
@@ -90,10 +95,15 @@ func LoadAgent() AgentConfig {
 		CPULimit:        env("HOPPER_CPU", ""),
 		MemLimit:        env("HOPPER_MEM", ""),
 		PollInterval:    envInt("HOPPER_POLL_INTERVAL", 2),
+		Concurrency:     envInt("HOPPER_CONCURRENCY", 1),
 		LocalAddr:       env("HOPPER_AGENT_ADDR", "127.0.0.1:8765"),
 		WorkRoot:        env("HOPPER_WORK_ROOT", "data/work"),
 		AutoUpdate:      env("HOPPER_AUTOUPDATE", "") != "",
 		UpdateIntervalM: envInt("HOPPER_UPDATE_INTERVAL_MIN", 60),
+		RegistryAuth:    env("HOPPER_REGISTRY_AUTH", "") != "",
+		RegistryServer:  env("HOPPER_REGISTRY_SERVER", ""),
+		RegistryUser:    env("HOPPER_REGISTRY_USER", ""),
+		RegistryPass:    env("HOPPER_REGISTRY_PASSWORD", ""),
 	}
 }
 

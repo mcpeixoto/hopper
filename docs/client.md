@@ -46,8 +46,24 @@ curl -s localhost:8765/api/status | jq
 ## Labels & capabilities
 
 `HOPPER_LABELS` is a comma-separated list of what this node can do (`gpu`, `bigmem`,
-`arm64`, `fast-disk`, whatever you define). A job is only offered to a worker that has *all*
-the labels the job requires. No labels = a general-purpose node that takes any unlabelled job.
+`fast-disk`, whatever you define). A job is only offered to a worker that has *all* the
+labels the job requires. No labels = a general-purpose node that takes any unlabelled job.
+
+Every agent also **auto-advertises** `os:<goos>` and `arch:<goarch>` (e.g. `os:linux`,
+`arch:arm64`), so in a mixed fleet you can target a platform with
+`--labels os:linux,arch:amd64` without configuring anything.
+
+## Running jobs in parallel
+
+By default a node runs one job at a time. Set `HOPPER_CONCURRENCY=N` to run up to N jobs
+concurrently — turn a big server into an N-slot runner. The node console shows
+`Running x/N`.
+
+## Private images
+
+To pull from a private registry, either `docker login` on the node yourself, or let the
+agent do it: set `HOPPER_REGISTRY_AUTH=1` plus `HOPPER_REGISTRY_SERVER` (e.g. `ghcr.io`),
+`HOPPER_REGISTRY_USER`, and `HOPPER_REGISTRY_PASSWORD`. The agent logs in once at startup.
 
 ## Resource limits & isolation
 

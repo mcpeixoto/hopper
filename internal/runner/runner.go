@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os/exec"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -84,6 +85,22 @@ func BuildRunArgs(spec Spec) []string {
 	args = append(args, spec.Image)
 	args = append(args, spec.Command...)
 	return args
+}
+
+// Login authenticates the docker CLI to a registry (for pulling private images),
+// passing the password on stdin so it never appears in the process list. An empty
+// server logs in to Docker Hub.
+func (r *Runner) Login(ctx context.Context, server, user, password string) error {
+	args := []string{"login", "-u", user, "--password-stdin"}
+	if server != "" {
+		args = append(args, server)
+	}
+	cmd := exec.CommandContext(ctx, r.Docker, args...)
+	cmd.Stdin = strings.NewReader(password)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("docker login: %v: %s", err, out)
+	}
+	return nil
 }
 
 // Pull fetches the image if the policy requires it. With "if-not-present" it is a
