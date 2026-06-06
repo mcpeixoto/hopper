@@ -25,8 +25,8 @@ Hopper has two programs and one database.
 
 Workers open **outbound** connections to the control plane and **long-poll** for work. The
 control plane never initiates a connection to a worker. This is the single most important
-design decision, and it falls out of one constraint: **a worker (your laptop) is usually
-behind NAT with no public inbound port.**
+design decision, and it falls out of one constraint: **a worker is often behind NAT (home
+Wi-Fi, another cloud, a corporate network) with no public inbound port.**
 
 - A *push* design (server dials worker to hand it a job) needs a public IP + port-forward,
   or a reverse tunnel, or a VPN on every node — a second system that can break.
@@ -66,8 +66,8 @@ control plane periodically:
 2. Marks workers that stopped heartbeating as `stale`, then `dead`.
 
 This is the SQS-style **visibility timeout** pattern. It needs no broker — just a
-`WHERE lease_expires_at < now` sweep — and it's what makes "my laptop went to sleep
-mid-job" a non-event: the job simply runs again elsewhere.
+`WHERE lease_expires_at < now` sweep — and it's what makes "a node went to sleep, crashed,
+or lost the network mid-job" a non-event: the job simply runs again elsewhere.
 
 ## Job lifecycle
 
@@ -100,6 +100,8 @@ stdout/stderr + exit code are captured and reported.
 
 ## When you've outgrown it
 
-Reach for a real scheduler when nodes are **created and destroyed by automation** (cloud
-autoscaling) on a private network the control plane can address — roughly **>5 nodes** or
-machine-managed lifecycle. Until then the pull queue is simpler and more robust.
+Reach for a heavier scheduler (Kubernetes, Nomad) when you need cluster-grade features Hopper
+deliberately omits: pod networking and service discovery between jobs, autoscaling node pools
+on a private network, bin-packing by fine-grained resource requests, or multi-tenant
+isolation of untrusted workloads. For "run containerized jobs across machines I trust," the
+pull queue is simpler and more robust.

@@ -12,27 +12,42 @@
 
 # Hopper
 
-**Hopper is a tiny distributed job dispatcher.** You submit a job — a Docker image plus a
+**Hopper is a tiny distributed job runner.** You submit a job — a Docker image plus a
 command — to a small control plane, and any worker node that's free claims it, runs it, and
 streams the result back. Like the Minecraft block it's named after, Hopper *collects work
 and funnels it into the machine below*.
 
-It is built for the scale where Kubernetes is absurd overkill but "SSH in and run it
-manually" has stopped scaling: a laptop, a VPS, a spare box under the desk. One static
-binary per side, SQLite for state, Docker for execution. **No Kubernetes, no Terraform, no
-message broker, no cluster to babysit.**
+It fills the gap between "SSH in and run it by hand" and standing up Kubernetes: you have a
+few machines with Docker and you want to run work across them — batch jobs, builds, CI,
+renders, scrapers, ML experiments — without operating a cluster. One static binary per role,
+SQLite for state, Docker for execution. **No Kubernetes, no Terraform, no message broker, no
+control plane to babysit.**
 
 ```
-   jobs ──▶  ┌──────────────┐                ┌──────────── your laptop (behind NAT) ─────────┐
+   jobs ──▶  ┌──────────────┐                ┌──────────── worker node (often behind NAT) ────┐
              │   hopperd    │ ◀── long-poll ─┤  hopper-agent → docker run <image> <command>   │
-   console ─▶│ (control     │     claim       │  reports exit code + logs, heartbeats          │
-             │  plane, VPS) │ ──── job ──────▶│                                                │
+   console ─▶│  (control    │     claim       │  reports exit code + logs, heartbeats          │
+   CLI/API ─▶│   plane)     │ ──── job ──────▶│                                                │
              │  SQLite queue│                 └────────────────────────────────────────────────┘
              └──────────────┘    reaper requeues a dead node's job automatically
 ```
 
-Workers **pull** work over outbound HTTPS, so a node behind NAT needs **no public IP, no
-port-forward, no tunnel**. To add a node you run one script on it. That's the whole story.
+Workers **pull** work over outbound HTTPS, so a node behind NAT, on home Wi-Fi, or on another
+cloud needs **no public IP, no port-forward, no tunnel** — only outbound access to the control
+plane. Adding a node is one script. That's the whole story.
+
+## Who it's for
+
+- **Home labs & self-hosters** — put that pile of mini-PCs, NUCs, and old laptops to work.
+- **Small teams** — a shared build/CI/batch runner without a platform team or a K8s bill.
+- **Researchers & ML folks** — fan experiments out across whatever boxes (and GPUs) you have;
+  route GPU jobs with labels.
+- **CI** — run GitHub Actions on your own hardware as ephemeral runners (no cluster).
+- **Render / encode / scrape farms** — queue thousands of containerized jobs across mixed
+  machines, on or off the same network.
+- **Edge / multi-cloud fleets** — nodes anywhere with outbound HTTPS join the same pool.
+
+If your workload fits in a container and you'd rather not run Kubernetes, Hopper is for you.
 
 ---
 
@@ -59,7 +74,8 @@ port-forward, no tunnel**. To add a node you run one script on it. That's the wh
 
 > Needs Go 1.22+ to build (or grab a binary from [Releases](https://github.com/mcpeixoto/hopper/releases)), and Docker on every worker node.
 
-**1. Run the control plane** (on the box your nodes can reach):
+**1. Run the control plane** (on any host your nodes can reach over HTTPS — a VPS, a server,
+a container):
 
 ```bash
 git clone https://github.com/mcpeixoto/hopper && cd hopper
@@ -68,7 +84,8 @@ export HOPPER_NODE_TOKEN=$(openssl rand -hex 32)
 make run-server          # listens on :8080
 ```
 
-**2. Start a worker** (on your laptop, the same VPS, anywhere with Docker):
+**2. Start a worker** (on any machine with Docker — a server, a workstation, a laptop, a
+cloud VM):
 
 ```bash
 HOPPER_CONTROL_URL=http://localhost:8080 \
@@ -99,8 +116,8 @@ That's it — the worker pulled the image, ran the command, and reported the res
 
 | Piece | What it is | Runs where |
 |-------|------------|------------|
-| **`hopperd`** | Control plane: job queue, worker registry, artifact store, lease reaper | Your VPS / always-on box |
-| **`hopper-agent`** | Worker: pulls jobs, runs Docker, reports results, serves a local node console | Every node (laptop, VPS, …) |
+| **`hopperd`** | Control plane: job queue, worker registry, artifact store, lease reaper | One always-on host (VPS, server, container) |
+| **`hopper-agent`** | Worker: pulls jobs, runs Docker, reports results, serves a local node console | Every node (server, workstation, VM, …) |
 | **web console** | Operator GUI: submit jobs, watch the queue + fleet, read logs | Browser → `hopperd` |
 | **node console** | Per-node GUI: this machine's state, current job, live logs | Browser → `hopper-agent` (loopback) |
 
@@ -130,15 +147,15 @@ gVisor/Kata/Firecracker — that's out of scope. See [docs/security.md](docs/sec
 
 ## Why not Kubernetes / Nomad / Terraform?
 
-Because at one laptop + one VPS they cost more than they give. K8s and Nomad assume the
-server can reach the clients (the NAT problem comes right back), plus a cluster to operate.
-Terraform provisions cloud infra you aren't renting yet. A broker (Redis/Celery) is one more
-stateful service to run and back up. Hopper's bet is the same one a SQLite-backed app makes:
-**the database is enough.**
+For a handful of trusted machines they cost more than they give. K8s and Nomad assume the
+control plane can reach the workers (the NAT problem comes right back), plus a cluster to
+operate. Terraform provisions infra; Hopper runs on machines you already have. A broker
+(Redis/Celery) is one more stateful service to run and back up. Hopper's bet is the same one
+a SQLite-backed app makes: **the database is enough.**
 
-The signal that you've outgrown Hopper: nodes created and destroyed by *automation* (cloud
-autoscaling) on a private network — roughly >5 nodes or machine-managed lifecycle. Until
-then, a pull queue is the right tool. More in the [architecture docs](docs/architecture.md).
+Outgrow it when you need what a real cluster gives — job-to-job networking, autoscaling node
+pools, fine-grained bin-packing, or multi-tenant isolation of untrusted code. Until then, a
+pull queue is the right tool. More in the [architecture docs](docs/architecture.md).
 
 ## Documentation
 
