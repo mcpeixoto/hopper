@@ -43,6 +43,7 @@ install a release that isn't validly signed when a public key is embedded. Setup
 
 - ✅ Operator CLI (`hopper submit/jobs/get/logs/result/nodes/cancel`) — see [cli.md](cli.md).
 - ✅ Job logs + outputs as first-class artifacts (`GET /api/jobs/{id}/logs` and `/result`).
+- ✅ Completion webhooks — see [notifications.md](notifications.md).
 - **Live log streaming** while a job runs (today logs arrive at completion).
 - **Server-advertised target version** so agents converge to the server's version, not just
   the latest published tag.

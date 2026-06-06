@@ -32,6 +32,10 @@ type Config struct {
 	RunnerImage         string   // ephemeral runner image
 	RunnerTriggerLabels []string // workflow runs-on labels that activate Hopper
 	RunnerJobLabels     []string // Hopper node labels runner jobs are routed to
+
+	// Completion webhook (optional).
+	NotifyURL    string // POSTed a JSON event on terminal job transitions
+	NotifySecret string // HMAC secret for the webhook (X-Hopper-Signature-256)
 }
 
 // Load reads the control-plane configuration from the environment.
@@ -57,6 +61,9 @@ func Load() Config {
 		RunnerImage:         env("HOPPER_RUNNER_IMAGE", "myoung34/github-runner:latest"),
 		RunnerTriggerLabels: splitList(env("HOPPER_RUNNER_TRIGGER_LABELS", "self-hosted,hopper")),
 		RunnerJobLabels:     splitList(env("HOPPER_RUNNER_JOB_LABELS", "ci")),
+
+		NotifyURL:    env("HOPPER_NOTIFY_URL", ""),
+		NotifySecret: env("HOPPER_NOTIFY_SECRET", ""),
 	}
 }
 

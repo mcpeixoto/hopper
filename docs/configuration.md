@@ -19,6 +19,8 @@ no config file.
 | `HOPPER_JOB_RETENTION_DAYS` | `0` | purge terminal jobs + orphaned blobs older than N days (0 = keep forever) |
 | `HOPPER_LOG_LEVEL` | `info` | `debug` / `info` / `warn` / `error` |
 | `HOPPER_LOG_FORMAT` | `text` | `text` or `json` (structured) |
+| `HOPPER_NOTIFY_URL` | _(off)_ | webhook POSTed a JSON event on terminal job transitions |
+| `HOPPER_NOTIFY_SECRET` | _(none)_ | HMAC secret for the webhook (`X-Hopper-Signature-256`) |
 | `HOPPER_AUTOUPDATE` | _(off)_ | set to `1` to self-update from releases |
 | `HOPPER_UPDATE_INTERVAL_MIN` | `60` | minutes between update checks |
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/mcpeixoto/hopper/internal/blob"
 	"github.com/mcpeixoto/hopper/internal/metrics"
+	"github.com/mcpeixoto/hopper/internal/notify"
 	"github.com/mcpeixoto/hopper/internal/store"
 )
 
@@ -21,10 +22,30 @@ const maxBodyBytes = 1 << 20
 // API holds the dependencies shared by every handler.
 type API struct {
 	Store           *store.Store
-	Blob            *blob.Store   // nil disables artifact endpoints
-	GitHub          *GitHubRunner // nil disables the GitHub Actions integration
+	Blob            *blob.Store      // nil disables artifact endpoints
+	GitHub          *GitHubRunner    // nil disables the GitHub Actions integration
+	Notifier        *notify.Notifier // nil disables completion webhooks
 	LeaseSeconds    int
 	LongPollSeconds int
+}
+
+// fireIfTerminal sends a completion webhook if the job is now in a terminal state.
+func (a *API) fireIfTerminal(jobID string) {
+	if a.Notifier == nil {
+		return
+	}
+	j, err := a.Store.GetJob(jobID)
+	if err != nil {
+		return
+	}
+	switch j.Status {
+	case "done", "failed", "cancelled":
+		a.Notifier.Fire(notify.Event{
+			Event: "job." + j.Status, JobID: j.ID, Status: j.Status, Image: j.Image,
+			ExitCode: j.ExitCode, Error: j.Error, Attempts: j.Attempts,
+			SubmittedBy: j.SubmittedBy, FinishedAt: j.FinishedAt,
+		})
+	}
 }
 
 // Health reports liveness. No auth.
@@ -119,6 +140,7 @@ func (a *API) CancelJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
+	a.fireIfTerminal(r.PathValue("id"))
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
@@ -187,6 +209,7 @@ func (a *API) CompleteJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	metrics.JobCompleted(req.Status)
+	a.fireIfTerminal(r.PathValue("id"))
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 

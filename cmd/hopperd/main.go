@@ -17,6 +17,7 @@ import (
 	"github.com/mcpeixoto/hopper/internal/config"
 	gh "github.com/mcpeixoto/hopper/internal/github"
 	"github.com/mcpeixoto/hopper/internal/handler"
+	"github.com/mcpeixoto/hopper/internal/notify"
 	"github.com/mcpeixoto/hopper/internal/reaper"
 	"github.com/mcpeixoto/hopper/internal/scheduler"
 	"github.com/mcpeixoto/hopper/internal/store"
@@ -67,8 +68,12 @@ func main() {
 	api := &handler.API{
 		Store:           db,
 		Blob:            blobs,
+		Notifier:        notify.New(cfg.NotifyURL, cfg.NotifySecret),
 		LeaseSeconds:    cfg.LeaseSeconds,
 		LongPollSeconds: cfg.LongPollSeconds,
+	}
+	if cfg.NotifyURL != "" {
+		slog.Info("completion webhook enabled", "url", cfg.NotifyURL)
 	}
 
 	// Optional GitHub Actions runner integration.
