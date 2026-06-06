@@ -43,6 +43,9 @@ type JobSpec struct {
 	TimeoutS    int               `json:"timeout_s"`
 	MaxAttempts int               `json:"max_attempts"`
 	SubmittedBy string            `json:"submitted_by"`
+	// Paused creates the job in the 'paused' state so an input artifact can be
+	// attached before it becomes claimable. Release it with ReleaseJob.
+	Paused bool `json:"paused"`
 }
 
 // SubmitJob inserts a new queued job and returns it.
@@ -57,6 +60,10 @@ func (s *Store) SubmitJob(spec JobSpec) (Job, error) {
 		spec.MaxAttempts = 3
 	}
 	now := nowISO()
+	status := "queued"
+	if spec.Paused {
+		status = "paused"
+	}
 	j := Job{
 		ID:          newID("job"),
 		Image:       spec.Image,
@@ -64,7 +71,7 @@ func (s *Store) SubmitJob(spec JobSpec) (Job, error) {
 		Env:         orEmptyMap(spec.Env),
 		Labels:      orEmptySlice(spec.Labels),
 		Priority:    spec.Priority,
-		Status:      "queued",
+		Status:      status,
 		MaxAttempts: spec.MaxAttempts,
 		TimeoutS:    spec.TimeoutS,
 		SubmittedBy: spec.SubmittedBy,
@@ -74,13 +81,27 @@ func (s *Store) SubmitJob(spec JobSpec) (Job, error) {
 	_, err := s.db.Exec(`
 		INSERT INTO jobs (id, image, command_json, env_json, labels_json, priority,
 		    status, max_attempts, timeout_s, submitted_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		j.ID, j.Image, mustJSON(j.Command), mustJSON(j.Env), mustJSON(j.Labels),
-		j.Priority, j.MaxAttempts, j.TimeoutS, j.SubmittedBy, j.CreatedAt, j.UpdatedAt)
+		j.Priority, status, j.MaxAttempts, j.TimeoutS, j.SubmittedBy, j.CreatedAt, j.UpdatedAt)
 	if err != nil {
 		return Job{}, err
 	}
 	return j, nil
+}
+
+// ReleaseJob moves a paused job into the queue so workers can claim it. Used
+// after attaching an input artifact.
+func (s *Store) ReleaseJob(id string) error {
+	res, err := s.db.Exec(`UPDATE jobs SET status='queued', updated_at=? WHERE id=? AND status='paused'`,
+		nowISO(), id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // GetJob returns the job with the given id, or [ErrNotFound].

@@ -6,12 +6,15 @@ package agent
 
 import (
 	"context"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/mcpeixoto/hopper/internal/archive"
 	"github.com/mcpeixoto/hopper/internal/client"
 	"github.com/mcpeixoto/hopper/internal/config"
 	"github.com/mcpeixoto/hopper/internal/runner"
@@ -175,6 +178,14 @@ func (a *Agent) runJob(ctx context.Context, job *client.Job) {
 	_ = os.MkdirAll(outDir, 0o755)
 	defer os.RemoveAll(workDir)
 
+	// Fetch and unpack the input artifact, if any, into in/.
+	if job.InputArtifactID != "" {
+		if err := a.downloadInput(ctx, job.ID, inDir); err != nil {
+			a.reportResult(ctx, job, "failed", 0, "", "", "input download: "+err.Error())
+			return
+		}
+	}
+
 	spec := runner.Spec{
 		JobID:      job.ID,
 		Image:      job.Image,
@@ -204,14 +215,27 @@ func (a *Agent) runJob(ctx context.Context, job *client.Job) {
 		errMsg = "non-zero exit"
 	}
 
-	if cerr := a.Client.CompleteJob(ctx, job.ID, status, &exit, "", errMsg); cerr != nil {
+	// Upload logs and (if produced) the output tarball, then report.
+	logsID := a.uploadLogs(ctx, job.ID, res.Logs)
+	outputID := ""
+	if status == "done" && !archive.IsEmptyDir(outDir) {
+		outputID = a.uploadOutput(ctx, job.ID, outDir)
+	}
+	a.reportResult(ctx, job, status, exit, outputID, logsID, errMsg)
+
+	a.mu.Lock()
+	a.status.LastLog = tail(res.Logs, 4000)
+	a.mu.Unlock()
+}
+
+// reportResult records the outcome to the control plane and updates local status.
+func (a *Agent) reportResult(ctx context.Context, job *client.Job, status string, exit int, outputID, logsID, errMsg string) {
+	if cerr := a.Client.CompleteJob(ctx, job.ID, status, &exit, outputID, logsID, errMsg); cerr != nil {
 		log.Printf("complete job %s failed: %v", job.ID, cerr)
 		a.recordError("complete: " + cerr.Error())
 	}
-
 	a.mu.Lock()
 	a.status.CurrentJob = nil
-	a.status.LastLog = tail(res.Logs, 4000)
 	if status == "done" {
 		a.status.JobsDone++
 	} else {
@@ -221,6 +245,56 @@ func (a *Agent) runJob(ctx context.Context, job *client.Job) {
 	a.status.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	a.mu.Unlock()
 	log.Printf("job %s finished status=%s exit=%d", job.ID, status, exit)
+}
+
+// downloadInput streams the job's input artifact and extracts it into inDir.
+func (a *Agent) downloadInput(ctx context.Context, jobID, inDir string) error {
+	rc, err := a.Client.DownloadInput(ctx, jobID)
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+	return archive.UntarGz(rc, inDir)
+}
+
+// uploadOutput tars outDir to a temp file and uploads it, returning the artifact
+// id ("" on failure, which is logged but not fatal).
+func (a *Agent) uploadOutput(ctx context.Context, jobID, outDir string) string {
+	tmp, err := os.CreateTemp("", "hopper-out-*.tgz")
+	if err != nil {
+		log.Printf("output tar: %v", err)
+		return ""
+	}
+	defer os.Remove(tmp.Name())
+	if err := archive.TarGz(outDir, tmp); err != nil {
+		tmp.Close()
+		log.Printf("output tar: %v", err)
+		return ""
+	}
+	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+		tmp.Close()
+		return ""
+	}
+	defer tmp.Close()
+	art, err := a.Client.UploadOutput(ctx, jobID, tmp)
+	if err != nil {
+		log.Printf("output upload: %v", err)
+		return ""
+	}
+	return art.ID
+}
+
+// uploadLogs uploads captured logs, returning the artifact id ("" if empty/failed).
+func (a *Agent) uploadLogs(ctx context.Context, jobID, logs string) string {
+	if logs == "" {
+		return ""
+	}
+	art, err := a.Client.UploadLogs(ctx, jobID, strings.NewReader(logs))
+	if err != nil {
+		log.Printf("logs upload: %v", err)
+		return ""
+	}
+	return art.ID
 }
 
 func (a *Agent) recordError(msg string) {

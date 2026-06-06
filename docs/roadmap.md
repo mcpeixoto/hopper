@@ -3,17 +3,19 @@
 Hopper's core (queue, pull-based dispatch, leases, dual GUIs, releases, auto-update) is
 built. These are the planned next steps, each of which fits the existing model cleanly.
 
-## Artifact handoff (job inputs & outputs)
+## ✅ Artifact handoff (job inputs & outputs) — shipped
 
-Today a job runs a command and Hopper captures its exit code + logs. Next: ship **input
-blobs** to the node and retrieve **output blobs**.
+Jobs can now take inputs and return outputs, not just logs:
 
-- Upload an input artifact on submit; the agent downloads it to `/work/in` before running.
-- The agent tars `/work/out` and uploads it on completion; operators fetch it via
-  `GET /api/jobs/{id}/result`.
-- Integrity via SHA-256; blobs stream through the control plane (no extra service).
-- Graduate to MinIO/S3 + presigned URLs when blobs routinely exceed ~100 MB or a third node
-  makes the control plane's uplink the bottleneck.
+- Submit `paused`, `PUT .../input` a tar.gz, `POST .../release`; the agent unpacks it into
+  `/work/in` before running.
+- The agent tars `/work/out` and uploads it; operators fetch it via `GET /api/jobs/{id}/result`
+  and logs via `GET /api/jobs/{id}/logs`.
+- Content-addressed blob store (SHA-256 names → free dedup + integrity); blobs stream
+  through the control plane (no extra service).
+
+**Still to do:** graduate to MinIO/S3 + presigned URLs when blobs routinely exceed ~100 MB
+or a third node makes the control plane's uplink the bottleneck.
 
 ## Distributed GitHub Actions runners
 

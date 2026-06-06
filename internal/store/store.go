@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     labels_json        TEXT NOT NULL DEFAULT '[]',
     priority           INTEGER NOT NULL DEFAULT 0,
     status             TEXT NOT NULL DEFAULT 'queued'
-                       CHECK (status IN ('queued','in_flight','done','failed','cancelled')),
+                       CHECK (status IN ('paused','queued','in_flight','done','failed','cancelled')),
     input_artifact_id  TEXT,
     output_artifact_id TEXT,
     claimed_by         TEXT,

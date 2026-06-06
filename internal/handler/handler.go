@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/mcpeixoto/hopper/internal/blob"
 	"github.com/mcpeixoto/hopper/internal/store"
 )
 
@@ -19,6 +20,7 @@ const maxBodyBytes = 1 << 20
 // API holds the dependencies shared by every handler.
 type API struct {
 	Store           *store.Store
+	Blob            *blob.Store // nil disables artifact endpoints
 	LeaseSeconds    int
 	LongPollSeconds int
 }
@@ -70,6 +72,20 @@ func (a *API) GetJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, job)
+}
+
+// ReleaseJob moves a paused job into the queue (after its input was attached).
+// Operator auth.
+func (a *API) ReleaseJob(w http.ResponseWriter, r *http.Request) {
+	if err := a.Store.ReleaseJob(r.PathValue("id")); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "no paused job with that id")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 // CancelJob marks a job cancelled. Operator auth.
@@ -124,10 +140,11 @@ func (a *API) ClaimJob(w http.ResponseWriter, r *http.Request) {
 
 // completeRequest is the body a worker sends when a job finishes.
 type completeRequest struct {
-	Status   string `json:"status"` // "done" | "failed"
-	ExitCode *int   `json:"exit_code"`
-	LogsRef  string `json:"logs_ref"`
-	Error    string `json:"error"`
+	Status           string `json:"status"` // "done" | "failed"
+	ExitCode         *int   `json:"exit_code"`
+	OutputArtifactID string `json:"output_artifact_id"`
+	LogsRef          string `json:"logs_ref"`
+	Error            string `json:"error"`
 }
 
 // CompleteJob records a job's result. Node auth.
@@ -139,7 +156,7 @@ func (a *API) CompleteJob(w http.ResponseWriter, r *http.Request) {
 	if req.Status == "" {
 		req.Status = "done"
 	}
-	if err := a.Store.CompleteJob(r.PathValue("id"), req.Status, req.ExitCode, "", req.LogsRef, req.Error); err != nil {
+	if err := a.Store.CompleteJob(r.PathValue("id"), req.Status, req.ExitCode, req.OutputArtifactID, req.LogsRef, req.Error); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "job not found")
 			return

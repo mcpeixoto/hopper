@@ -47,6 +47,7 @@ type JobSpec struct {
 	TimeoutS    int               `json:"timeout_s,omitempty"`
 	MaxAttempts int               `json:"max_attempts,omitempty"`
 	SubmittedBy string            `json:"submitted_by,omitempty"`
+	Paused      bool              `json:"paused,omitempty"`
 }
 
 // Worker mirrors the control plane's worker JSON.
@@ -115,6 +116,11 @@ func (c *Client) CancelJob(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodPost, "/api/jobs/"+id+"/cancel", nil, nil)
 }
 
+// ReleaseJob moves a paused job into the queue (after attaching its input).
+func (c *Client) ReleaseJob(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodPost, "/api/jobs/"+id+"/release", nil, nil)
+}
+
 // --- worker plane (node) ---
 
 // RegisterWorker registers this node and returns its worker record.
@@ -156,9 +162,104 @@ func (c *Client) ClaimJob(ctx context.Context, workerID string, labels []string)
 }
 
 // CompleteJob reports a job's result. status is "done" or "failed".
-func (c *Client) CompleteJob(ctx context.Context, id, status string, exitCode *int, logsRef, errMsg string) error {
-	body := map[string]any{"status": status, "exit_code": exitCode, "logs_ref": logsRef, "error": errMsg}
+func (c *Client) CompleteJob(ctx context.Context, id, status string, exitCode *int, outputArtifactID, logsRef, errMsg string) error {
+	body := map[string]any{
+		"status":             status,
+		"exit_code":          exitCode,
+		"output_artifact_id": outputArtifactID,
+		"logs_ref":           logsRef,
+		"error":              errMsg,
+	}
 	return c.do(ctx, http.MethodPost, "/api/jobs/"+id+"/complete", body, nil)
+}
+
+// Artifact mirrors the control plane's artifact JSON.
+type Artifact struct {
+	ID          string `json:"id"`
+	Kind        string `json:"kind"`
+	ContentHash string `json:"content_hash"`
+	SizeBytes   int64  `json:"size_bytes"`
+}
+
+// --- artifacts ---
+
+// UploadInput uploads a tar.gz input blob for a job (operator). Returns the artifact.
+func (c *Client) UploadInput(ctx context.Context, jobID string, r io.Reader) (Artifact, error) {
+	return c.upload(ctx, "/api/jobs/"+jobID+"/input", r)
+}
+
+// UploadOutput uploads a tar.gz of the job's output (node). Returns the artifact.
+func (c *Client) UploadOutput(ctx context.Context, jobID string, r io.Reader) (Artifact, error) {
+	return c.upload(ctx, "/api/jobs/"+jobID+"/output", r)
+}
+
+// UploadLogs uploads a job's captured logs (node). Returns the artifact.
+func (c *Client) UploadLogs(ctx context.Context, jobID string, r io.Reader) (Artifact, error) {
+	return c.upload(ctx, "/api/jobs/"+jobID+"/logs", r)
+}
+
+// DownloadInput streams a job's input blob (node). Caller must Close the reader.
+func (c *Client) DownloadInput(ctx context.Context, jobID string) (io.ReadCloser, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/api/jobs/"+jobID+"/input", nil)
+	if err != nil {
+		return nil, err
+	}
+	if c.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		defer resp.Body.Close()
+		return nil, errStatus(resp)
+	}
+	return resp.Body, nil
+}
+
+// DownloadResult streams a finished job's output blob (operator). Caller closes it.
+func (c *Client) DownloadResult(ctx context.Context, jobID string) (io.ReadCloser, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/api/jobs/"+jobID+"/result", nil)
+	if err != nil {
+		return nil, err
+	}
+	if c.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		defer resp.Body.Close()
+		return nil, errStatus(resp)
+	}
+	return resp.Body, nil
+}
+
+func (c *Client) upload(ctx context.Context, path string, r io.Reader) (Artifact, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, c.BaseURL+path, r)
+	if err != nil {
+		return Artifact{}, err
+	}
+	req.Header.Set("Content-Type", "application/octet-stream")
+	if c.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return Artifact{}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return Artifact{}, errStatus(resp)
+	}
+	var art Artifact
+	if err := json.NewDecoder(resp.Body).Decode(&art); err != nil {
+		return Artifact{}, err
+	}
+	return art, nil
 }
 
 // --- internals ---

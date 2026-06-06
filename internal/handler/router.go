@@ -23,11 +23,18 @@ func Router(api *API, operatorToken, nodeToken string, corsOrigins []string) htt
 	mux.Handle("GET /api/jobs", operator(http.HandlerFunc(api.ListJobs)))
 	mux.Handle("GET /api/jobs/{id}", operator(http.HandlerFunc(api.GetJob)))
 	mux.Handle("POST /api/jobs/{id}/cancel", operator(http.HandlerFunc(api.CancelJob)))
+	mux.Handle("POST /api/jobs/{id}/release", operator(http.HandlerFunc(api.ReleaseJob)))
 	mux.Handle("GET /api/workers", operator(http.HandlerFunc(api.ListWorkers)))
+	mux.Handle("PUT /api/jobs/{id}/input", operator(http.HandlerFunc(api.PutInput)))
+	mux.Handle("GET /api/jobs/{id}/result", operator(http.HandlerFunc(api.GetResult)))
+	mux.Handle("GET /api/jobs/{id}/logs", operator(http.HandlerFunc(api.GetLogs)))
 
 	// Worker plane.
 	mux.Handle("POST /api/jobs/claim", node(http.HandlerFunc(api.ClaimJob)))
 	mux.Handle("POST /api/jobs/{id}/complete", node(http.HandlerFunc(api.CompleteJob)))
+	mux.Handle("GET /api/jobs/{id}/input", node(http.HandlerFunc(api.GetInput)))
+	mux.Handle("PUT /api/jobs/{id}/output", node(http.HandlerFunc(api.PutOutput)))
+	mux.Handle("PUT /api/jobs/{id}/logs", node(http.HandlerFunc(api.PutLogs)))
 	mux.Handle("POST /api/workers/register", node(http.HandlerFunc(api.RegisterWorker)))
 	mux.Handle("POST /api/workers/{id}/heartbeat", node(http.HandlerFunc(api.Heartbeat)))
 

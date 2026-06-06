@@ -28,10 +28,29 @@ Body:
   "priority": 0,                     // higher = claimed first
   "timeout_s": 3600,                 // default 3600
   "max_attempts": 3,                 // default 3
-  "submitted_by": "ci"               // optional provenance tag
+  "submitted_by": "ci",              // optional provenance tag
+  "paused": false                    // create paused so an input can be attached first
 }
 ```
 → `201` with the created job object.
+
+**Jobs with inputs** must be created `paused` so a worker can't claim them before the
+input is attached. The flow is: submit with `"paused": true` → `PUT .../input` →
+`POST .../release`.
+
+### `POST /api/jobs/{id}/release` — release a paused job
+Moves a `paused` job to `queued`. → `200 {"ok":true}` or `404` if no paused job.
+
+### `PUT /api/jobs/{id}/input` — attach an input artifact
+Body: a **tar.gz** of files; the worker unpacks it into `/work/in` (read-only) before the
+run. → `201` with the artifact (`id`, `content_hash`, `size_bytes`).
+
+### `GET /api/jobs/{id}/result` — download the output
+A **tar.gz** of the job's `/work/out`. → `200` (gzip stream) when `done`; `204` if the job
+produced no output; `202` while pending; `409` if failed/cancelled.
+
+### `GET /api/jobs/{id}/logs` — download captured logs
+Combined stdout/stderr as text. → `200 text/plain`, or `404` if the job produced none.
 
 ### `GET /api/jobs` — list jobs
 Optional `?status=queued|in_flight|done|failed|cancelled`. → `200 [job, …]` (newest first).
@@ -58,12 +77,22 @@ Body `{"worker_id":"wrk_…","labels":["cpu"]}`. Blocks up to `HOPPER_LONGPOLL_S
 → `200 job` (now `in_flight`, leased) or `204` if nothing claimable. A job is only offered
 to a worker whose labels satisfy **all** of the job's required labels.
 
+### `GET /api/jobs/{id}/input` — download the input blob
+The worker fetches the tar.gz attached by the operator. → `200` gzip, or `404` if none.
+
+### `PUT /api/jobs/{id}/output` — upload the output blob
+The worker uploads a tar.gz of `/work/out`. → `201` with the artifact id.
+
+### `PUT /api/jobs/{id}/logs` — upload captured logs
+→ `201` with the artifact id.
+
 ### `POST /api/jobs/{id}/complete` — report result
 Body:
 ```json
-{ "status": "done", "exit_code": 0, "logs_ref": "", "error": "" }
+{ "status": "done", "exit_code": 0, "output_artifact_id": "art_…", "logs_ref": "art_…", "error": "" }
 ```
-`status` is `done` or `failed`. A `failed` job with attempts remaining is automatically
+`status` is `done` or `failed`. `output_artifact_id`/`logs_ref` are the ids returned by the
+output/logs uploads (omit if none). A `failed` job with attempts remaining is automatically
 **requeued**; once `max_attempts` is reached it stays `failed`. → `200 {"ok":true}`.
 
 ## The job object

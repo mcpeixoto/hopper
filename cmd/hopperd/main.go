@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mcpeixoto/hopper/internal/blob"
 	"github.com/mcpeixoto/hopper/internal/config"
 	"github.com/mcpeixoto/hopper/internal/handler"
 	"github.com/mcpeixoto/hopper/internal/reaper"
@@ -33,8 +34,14 @@ func main() {
 		log.Printf("WARNING: HOPPER_OPERATOR_TOKEN / HOPPER_NODE_TOKEN unset — auth disabled (dev mode)")
 	}
 
+	blobs, err := blob.New(cfg.ArtifactDir)
+	if err != nil {
+		log.Fatalf("blob store: %v", err)
+	}
+
 	api := &handler.API{
 		Store:           db,
+		Blob:            blobs,
 		LeaseSeconds:    cfg.LeaseSeconds,
 		LongPollSeconds: cfg.LongPollSeconds,
 	}
