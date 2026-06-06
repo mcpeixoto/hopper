@@ -1,8 +1,8 @@
-# Build output
+# Build output (anchored so they don't match cmd/hopperd, cmd/hopper-agent)
 /bin/
 /dist/
-hopperd
-hopper-agent
+/hopperd
+/hopper-agent
 
 # Runtime data (SQLite db, WAL, artifacts)
 /data/
