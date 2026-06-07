@@ -40,6 +40,20 @@ If you also serve the [web console](../web/console), route `/` to the console's 
 and `/api` + `/health` to `hopperd` on the same origin (so no CORS needed); otherwise add
 the console's origin to `HOPPER_CORS_ORIGINS`.
 
+## Storage: SQLite or Postgres
+
+By default `hopperd` stores everything in a single SQLite file (`HOPPER_DB_PATH`) — zero
+setup, perfect for one control plane. To use **Postgres** instead, point `HOPPER_DB_PATH` at
+a DSN:
+
+```bash
+HOPPER_DB_PATH=postgres://user:pass@db.internal:5432/hopper?sslmode=require
+```
+
+The same schema is applied automatically on either backend (queries are placeholder-rewritten
+for Postgres). Reach for Postgres when you want managed backups/HA or you've outgrown a single
+SQLite writer; otherwise SQLite is simpler and plenty fast for a control plane.
+
 ## Operating notes
 
 - **Backups:** everything is in `HOPPER_DB_PATH` (+ `HOPPER_ARTIFACT_DIR`). Back up the data

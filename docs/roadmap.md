@@ -46,7 +46,6 @@ install a release that isn't validly signed when a public key is embedded. Setup
 - ✅ Completion webhooks — see [notifications.md](notifications.md).
 - ✅ Live log streaming — `hopper logs --follow` / `GET /api/jobs/{id}/logs?follow=1`.
 - ✅ Server→agent version convergence — agents follow the control plane's version (releases.md).
-- Optional Postgres backend for the control plane (same DDL) if SQLite's single writer ever
-  becomes the bottleneck.
+- ✅ Optional Postgres backend — set `HOPPER_DB_PATH=postgres://…` (server.md).
 
 Have an idea? Open a [feature request](https://github.com/mcpeixoto/hopper/issues/new).

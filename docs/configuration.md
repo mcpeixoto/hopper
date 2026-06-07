@@ -8,7 +8,7 @@ no config file.
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `HOPPER_PORT` | `8080` | HTTP listen port |
-| `HOPPER_DB_PATH` | `data/hopper.db` | SQLite file (parent dir auto-created) |
+| `HOPPER_DB_PATH` | `data/hopper.db` | SQLite file path, or a `postgres://…` DSN for Postgres |
 | `HOPPER_ARTIFACT_DIR` | `data/artifacts` | directory for input/output/log blobs |
 | `HOPPER_OPERATOR_TOKEN` | _(empty)_ | bearer token for submit/admin routes; empty = auth disabled |
 | `HOPPER_NODE_TOKEN` | _(empty)_ | bearer token for the worker plane; empty = auth disabled |
