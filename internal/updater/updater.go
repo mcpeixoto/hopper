@@ -102,7 +102,50 @@ func (u *Updater) CheckOnce(ctx context.Context) (bool, string, error) {
 	if !IsNewer(rel.TagName, u.Current) {
 		return false, rel.TagName, nil
 	}
-	log.Printf("updater: %s -> %s available, updating %s", u.Current, rel.TagName, u.BinaryName)
+	return u.install(ctx, rel)
+}
+
+// UpdateToTag installs a specific release tag if it is newer than the current
+// build. Used for server→agent version convergence. Returns (updated, tag, err).
+func (u *Updater) UpdateToTag(ctx context.Context, tag string) (bool, string, error) {
+	if !IsNewer(tag, u.Current) {
+		return false, tag, nil
+	}
+	rel, err := u.releaseByTag(ctx, tag)
+	if err != nil {
+		return false, tag, err
+	}
+	return u.install(ctx, rel)
+}
+
+// releaseByTag fetches release metadata for an exact tag.
+func (u *Updater) releaseByTag(ctx context.Context, tag string) (release, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", u.Repo, tag)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return release{}, err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	resp, err := u.HTTP.Do(req)
+	if err != nil {
+		return release{}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return release{}, fmt.Errorf("github release %s: %s", tag, resp.Status)
+	}
+	var rel release
+	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
+		return release{}, err
+	}
+	return rel, nil
+}
+
+// install downloads, verifies (checksum + optional signature), replaces the
+// running binary, and re-execs. On success it does not return (the process
+// re-execs); the bool is for the no-op and error paths.
+func (u *Updater) install(ctx context.Context, rel release) (bool, string, error) {
+	log.Printf("updater: %s -> %s, updating %s", u.Current, rel.TagName, u.BinaryName)
 
 	binURL, sumURL, sigURL := "", "", ""
 	want := u.assetName()

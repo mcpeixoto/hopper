@@ -52,6 +52,20 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+func TestVersionEndpoint(t *testing.T) {
+	srv := newTestServer(t, "", "")
+	resp := do(t, "GET", srv.URL+"/api/version", "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("want 200, got %d", resp.StatusCode)
+	}
+	var out map[string]string
+	json.NewDecoder(resp.Body).Decode(&out)
+	if _, ok := out["version"]; !ok {
+		t.Fatalf("expected a version field, got %v", out)
+	}
+}
+
 func TestSubmitRequiresOperatorToken(t *testing.T) {
 	srv := newTestServer(t, "op-secret", "node-secret")
 

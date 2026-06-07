@@ -22,8 +22,9 @@ func RouterWithLimit(api *API, operatorToken, nodeToken string, corsOrigins []st
 
 	mux := http.NewServeMux()
 
-	// Health + metrics — no auth.
+	// Health, version + metrics — no auth.
 	mux.HandleFunc("GET /health", api.Health)
+	mux.HandleFunc("GET /api/version", api.Version)
 	mux.HandleFunc("GET /metrics", api.Metrics)
 
 	// GitHub Actions webhook — authenticated by HMAC signature, not a bearer token.

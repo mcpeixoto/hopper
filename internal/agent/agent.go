@@ -21,6 +21,7 @@ import (
 	"github.com/mcpeixoto/hopper/internal/config"
 	"github.com/mcpeixoto/hopper/internal/runner"
 	"github.com/mcpeixoto/hopper/internal/telemetry"
+	"github.com/mcpeixoto/hopper/internal/updater"
 	"github.com/mcpeixoto/hopper/internal/version"
 )
 
@@ -184,6 +185,32 @@ func (a *Agent) claimLoop(ctx context.Context, workerID string) {
 			continue // long-poll timed out with no work
 		}
 		a.runJob(ctx, job)
+	}
+}
+
+// ConvergeVersionLoop polls the control plane's version and self-updates this
+// agent to match it (not just the latest GitHub release), so the fleet converges
+// to whatever the server runs. dev builds are never clobbered. Runs until ctx ends.
+func (a *Agent) ConvergeVersionLoop(ctx context.Context, interval time.Duration) {
+	if interval < time.Minute {
+		interval = time.Minute
+	}
+	up := updater.New(version.Repo, "hopper-agent", version.Version)
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			sv, err := a.Client.ServerVersion(ctx)
+			if err != nil || sv == "" {
+				continue
+			}
+			if _, _, err := up.UpdateToTag(ctx, sv); err != nil {
+				log.Printf("agent converge to %s: %v", sv, err)
+			}
+		}
 	}
 }
 

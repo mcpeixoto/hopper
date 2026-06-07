@@ -1,6 +1,7 @@
 package updater
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -43,6 +44,22 @@ func TestParseChecksum(t *testing.T) {
 	}
 	if _, ok := ParseChecksum(body, "missing"); ok {
 		t.Fatal("expected missing checksum to report not-found")
+	}
+}
+
+func TestUpdateToTagNoopWhenNotNewer(t *testing.T) {
+	u := New("mcpeixoto/hopper", "hopper-agent", "v0.3.0")
+	// Same or older tag must be a no-op (no network call, no update).
+	if updated, _, err := u.UpdateToTag(context.Background(), "v0.3.0"); updated || err != nil {
+		t.Fatalf("same version should be a no-op, got updated=%v err=%v", updated, err)
+	}
+	if updated, _, err := u.UpdateToTag(context.Background(), "v0.2.0"); updated || err != nil {
+		t.Fatalf("older version should be a no-op, got updated=%v err=%v", updated, err)
+	}
+	// dev current never updates.
+	dev := New("mcpeixoto/hopper", "hopper-agent", "dev")
+	if updated, _, _ := dev.UpdateToTag(context.Background(), "v9.9.9"); updated {
+		t.Fatal("dev build must not converge")
 	}
 }
 

@@ -73,6 +73,13 @@ Verify a release by hand:
 go run ./cmd/hopper-sign verify <PUBKEY> checksums.txt checksums.txt.sig
 ```
 
+## Version convergence (fleet follows the server)
+
+When `HOPPER_AUTOUPDATE=1`, **agents converge to the control plane's version** rather than
+the latest GitHub tag: each agent polls `GET /api/version` and self-updates to that exact
+release. Upgrade `hopperd`, and the fleet follows — no version skew, no per-node action.
+(`hopperd` itself, with auto-update on, tracks the latest published release.)
+
 ## What's still trusted
 
 Even signed, releases trust the CI pipeline and your GitHub account that holds the secret.

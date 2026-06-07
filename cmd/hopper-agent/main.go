@@ -15,7 +15,6 @@ import (
 	"github.com/mcpeixoto/hopper/internal/agent"
 	"github.com/mcpeixoto/hopper/internal/config"
 	"github.com/mcpeixoto/hopper/internal/runner"
-	"github.com/mcpeixoto/hopper/internal/updater"
 	"github.com/mcpeixoto/hopper/internal/version"
 )
 
@@ -41,12 +40,12 @@ func main() {
 		}
 	}
 
-	// Opt-in self-update: poll GitHub releases and re-exec on a newer version.
-	// systemd's Restart=always also relaunches the replaced binary after re-exec.
+	// Opt-in self-update: converge to the CONTROL PLANE's version (so the whole
+	// fleet matches the server), not just the latest GitHub release. systemd's
+	// Restart=always relaunches the replaced binary after re-exec.
 	if cfg.AutoUpdate {
-		up := updater.New(version.Repo, "hopper-agent", version.Version)
-		go up.Run(ctx, time.Duration(cfg.UpdateIntervalM)*time.Minute)
-		log.Printf("self-update enabled (every %dm)", cfg.UpdateIntervalM)
+		go ag.ConvergeVersionLoop(ctx, time.Duration(cfg.UpdateIntervalM)*time.Minute)
+		log.Printf("self-update enabled — converging to server version every %dm", cfg.UpdateIntervalM)
 	}
 
 	// Local status server for the node GUI (loopback).

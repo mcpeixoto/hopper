@@ -169,6 +169,15 @@ func (c *Client) CancelJob(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodPost, "/api/jobs/"+id+"/cancel", nil, nil)
 }
 
+// ServerVersion returns the control plane's build version (for update convergence).
+func (c *Client) ServerVersion(ctx context.Context) (string, error) {
+	var out struct {
+		Version string `json:"version"`
+	}
+	err := c.do(ctx, http.MethodGet, "/api/version", nil, &out)
+	return out.Version, err
+}
+
 // ReleaseJob moves a paused job into the queue (after attaching its input).
 func (c *Client) ReleaseJob(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodPost, "/api/jobs/"+id+"/release", nil, nil)

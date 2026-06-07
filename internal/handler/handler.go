@@ -15,6 +15,7 @@ import (
 	"github.com/mcpeixoto/hopper/internal/metrics"
 	"github.com/mcpeixoto/hopper/internal/notify"
 	"github.com/mcpeixoto/hopper/internal/store"
+	"github.com/mcpeixoto/hopper/internal/version"
 )
 
 // maxBodyBytes caps JSON request bodies. Artifact blobs use their own streaming
@@ -56,6 +57,12 @@ func (a *API) Health(w http.ResponseWriter, r *http.Request) {
 		"status": "ok",
 		"ts":     time.Now().UTC().Format(time.RFC3339),
 	})
+}
+
+// Version reports the control plane's build version, so agents can converge to it.
+// No auth.
+func (a *API) Version(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{"version": version.Version})
 }
 
 // SubmitJob enqueues a new job. Operator auth.
