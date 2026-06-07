@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"sort"
 	"strings"
@@ -21,13 +22,14 @@ type Spec struct {
 	Command      []string
 	Env          map[string]string
 	TimeoutS     int
-	InDir        string // host path mounted read-only at /work/in
-	OutDir       string // host path mounted read-write at /work/out
-	PullPolicy   string // "always" | "if-not-present"
-	AllowNet     bool   // when false, the container runs with --network none
-	CPULimit     string // docker --cpus value ("" = unset)
-	MemLimit     string // docker --memory value ("" = unset)
-	DockerSocket bool   // mount the host docker socket (for container-based / CI jobs)
+	InDir        string    // host path mounted read-only at /work/in
+	OutDir       string    // host path mounted read-write at /work/out
+	PullPolicy   string    // "always" | "if-not-present"
+	AllowNet     bool      // when false, the container runs with --network none
+	CPULimit     string    // docker --cpus value ("" = unset)
+	MemLimit     string    // docker --memory value ("" = unset)
+	DockerSocket bool      // mount the host docker socket (for container-based / CI jobs)
+	LogSink      io.Writer // when set, container output is teed here live as it is produced
 }
 
 // Result is the outcome of a run.
@@ -137,9 +139,13 @@ func (r *Runner) Run(ctx context.Context, spec Spec) (Result, error) {
 	defer cancel()
 
 	var buf bytes.Buffer
+	var out io.Writer = &buf
+	if spec.LogSink != nil {
+		out = io.MultiWriter(&buf, spec.LogSink) // capture + stream live
+	}
 	cmd := exec.CommandContext(runCtx, r.Docker, BuildRunArgs(spec)...)
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
+	cmd.Stdout = out
+	cmd.Stderr = out
 	err := cmd.Run()
 
 	res := Result{Logs: buf.String()}

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/mcpeixoto/hopper/internal/blob"
+	"github.com/mcpeixoto/hopper/internal/livelog"
 	"github.com/mcpeixoto/hopper/internal/metrics"
 	"github.com/mcpeixoto/hopper/internal/notify"
 	"github.com/mcpeixoto/hopper/internal/store"
@@ -26,6 +27,7 @@ const maxBodyBytes = 1 << 20
 type API struct {
 	Store           *store.Store
 	Blob            *blob.Store      // nil disables artifact endpoints
+	LiveLog         *livelog.Store   // nil disables live log streaming
 	GitHub          *GitHubRunner    // nil disables the GitHub Actions integration
 	Notifier        *notify.Notifier // nil disables completion webhooks
 	LeaseSeconds    int
@@ -227,7 +229,11 @@ func (a *API) CompleteJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	metrics.JobCompleted(req.Status)
-	a.fireIfTerminal(r.PathValue("id"))
+	id := r.PathValue("id")
+	a.fireIfTerminal(id)
+	if a.LiveLog != nil { // final logs are now an artifact; drop the live tail
+		_ = a.LiveLog.Remove(id)
+	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 

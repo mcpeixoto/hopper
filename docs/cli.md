@@ -13,6 +13,8 @@ Build it with `make build` (→ `bin/hopper`) or download it from
 ```bash
 # Submit a job and wait for it to finish
 hopper submit --image alpine:3.20 --cmd "echo hello" --wait
+# For shell scripts / quoting, put the command after `--`:
+hopper submit --image alpine:3.20 -- sh -c 'for i in 1 2 3; do echo $i; sleep 1; done'
 
 # Submit with inputs: tar a directory, send it as /work/in, run, then fetch output
 hopper submit --image mytool:latest --cmd "process /work/in -o /work/out" --input ./data
@@ -21,7 +23,7 @@ hopper result -o ./out <job-id>          # extracts the output tar.gz into ./out
 # Inspect
 hopper jobs [--status S] [--image substr] [--submitted-by who] [--since RFC3339] [--limit N]
 hopper get <job-id>                      # full detail
-hopper logs <job-id>                     # captured stdout/stderr
+hopper logs [-f|--follow] <job-id>       # captured stdout/stderr (live with --follow)
 
 # Fleet & nodes
 hopper nodes                             # fleet with load / slots / image-cache count

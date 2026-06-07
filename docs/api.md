@@ -55,8 +55,9 @@ run. → `201` with the artifact (`id`, `content_hash`, `size_bytes`).
 A **tar.gz** of the job's `/work/out`. → `200` (gzip stream) when `done`; `204` if the job
 produced no output; `202` while pending; `409` if failed/cancelled.
 
-### `GET /api/jobs/{id}/logs` — download captured logs
-Combined stdout/stderr as text. → `200 text/plain`, or `404` if the job produced none.
+### `GET /api/jobs/{id}/logs` — logs (final or live)
+Serves the final logs artifact once done, else live output so far. `?follow=1` tails the
+live log (streamed) until the job is terminal. → `200 text/plain`.
 
 ### `GET /api/jobs` — list jobs / history
 Filters (combinable): `?status=`, `?image=` (substring), `?submitted_by=` (substring),
@@ -92,6 +93,9 @@ The worker uploads a tar.gz of `/work/out`. → `201` with the artifact id.
 
 ### `PUT /api/jobs/{id}/logs` — upload captured logs
 → `201` with the artifact id.
+
+### `POST /api/jobs/{id}/logs/append` — stream live output (node)
+Appends a chunk of stdout/stderr while the job runs. → `204`.
 
 ### `POST /api/jobs/{id}/complete` — report result
 Body:

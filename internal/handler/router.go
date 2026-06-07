@@ -54,6 +54,7 @@ func RouterWithLimit(api *API, operatorToken, nodeToken string, corsOrigins []st
 	mux.Handle("GET /api/jobs/{id}/input", node(http.HandlerFunc(api.GetInput)))
 	mux.Handle("PUT /api/jobs/{id}/output", node(http.HandlerFunc(api.PutOutput)))
 	mux.Handle("PUT /api/jobs/{id}/logs", node(http.HandlerFunc(api.PutLogs)))
+	mux.Handle("POST /api/jobs/{id}/logs/append", node(http.HandlerFunc(api.AppendLog)))
 	mux.Handle("POST /api/workers/register", node(http.HandlerFunc(api.RegisterWorker)))
 	mux.Handle("POST /api/workers/{id}/heartbeat", node(http.HandlerFunc(api.Heartbeat)))
 

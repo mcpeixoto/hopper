@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/mcpeixoto/hopper/internal/blob"
+	"github.com/mcpeixoto/hopper/internal/livelog"
 	"github.com/mcpeixoto/hopper/internal/store"
 )
 
@@ -23,7 +24,11 @@ func newArtifactServer(t *testing.T) (*httptest.Server, *store.Store) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	api := &API{Store: db, Blob: blobs, LeaseSeconds: 60, LongPollSeconds: 1}
+	live, err := livelog.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	api := &API{Store: db, Blob: blobs, LiveLog: live, LeaseSeconds: 60, LongPollSeconds: 1}
 	srv := httptest.NewServer(Router(api, "", "", nil))
 	t.Cleanup(srv.Close)
 	return srv, db
@@ -97,6 +102,52 @@ func getURL(t *testing.T, url string) *http.Response {
 	resp, err := http.Get(url)
 	if err != nil {
 		t.Fatalf("get %s: %v", url, err)
+	}
+	return resp
+}
+
+func TestLiveLogStreaming(t *testing.T) {
+	srv, db := newArtifactServer(t)
+	job, _ := db.SubmitJob(store.JobSpec{Image: "alpine"})
+
+	// Worker appends live output while the job runs.
+	putBlobPost(t, srv.URL+"/api/jobs/"+job.ID+"/logs/append", []byte("line 1\n")).Body.Close()
+	putBlobPost(t, srv.URL+"/api/jobs/"+job.ID+"/logs/append", []byte("line 2\n")).Body.Close()
+
+	// Operator reads the live log (no final artifact yet).
+	res := getURL(t, srv.URL+"/api/jobs/"+job.ID+"/logs")
+	b, _ := io.ReadAll(res.Body)
+	res.Body.Close()
+	if string(b) != "line 1\nline 2\n" {
+		t.Fatalf("live log mismatch: %q", b)
+	}
+
+	// Once a final logs artifact exists, it takes precedence; live file is dropped.
+	logResp := putBlob(t, srv.URL+"/api/jobs/"+job.ID+"/logs", []byte("FINAL LOGS"))
+	var art struct {
+		ID string `json:"id"`
+	}
+	json.NewDecoder(logResp.Body).Decode(&art)
+	logResp.Body.Close()
+	do(t, "POST", srv.URL+"/api/jobs/claim", "", claimRequest{WorkerID: "w"}).Body.Close()
+	exit := 0
+	do(t, "POST", srv.URL+"/api/jobs/"+job.ID+"/complete", "",
+		completeRequest{Status: "done", ExitCode: &exit, LogsRef: art.ID}).Body.Close()
+
+	res = getURL(t, srv.URL+"/api/jobs/"+job.ID+"/logs")
+	b, _ = io.ReadAll(res.Body)
+	res.Body.Close()
+	if string(b) != "FINAL LOGS" {
+		t.Fatalf("final log mismatch: %q", b)
+	}
+}
+
+func putBlobPost(t *testing.T, url string, data []byte) *http.Response {
+	t.Helper()
+	req, _ := http.NewRequest("POST", url, bytes.NewReader(data))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("post %s: %v", url, err)
 	}
 	return resp
 }

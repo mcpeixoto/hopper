@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/mcpeixoto/hopper/internal/store"
 )
@@ -139,9 +140,31 @@ func (a *API) GetResult(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetLogs streams a job's captured logs as text. Operator auth.
+// AppendLog appends streamed stdout/stderr to a job's live log while it runs.
+// Node auth.
+func (a *API) AppendLog(w http.ResponseWriter, r *http.Request) {
+	if a.LiveLog == nil {
+		writeError(w, http.StatusServiceUnavailable, "live logs not configured")
+		return
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxArtifactBytes))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "read body")
+		return
+	}
+	if err := a.LiveLog.Append(r.PathValue("id"), body); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// GetLogs streams a job's logs as text. With ?follow=1 it tails the live log until
+// the job is terminal. Otherwise it serves the final logs artifact if present,
+// else whatever live output exists so far. Operator auth.
 func (a *API) GetLogs(w http.ResponseWriter, r *http.Request) {
-	job, err := a.Store.GetJob(r.PathValue("id"))
+	id := r.PathValue("id")
+	job, err := a.Store.GetJob(id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "job not found")
 		return
@@ -150,9 +173,54 @@ func (a *API) GetLogs(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	if job.LogsRef == "" {
-		writeError(w, http.StatusNotFound, "no logs")
+	if r.URL.Query().Get("follow") == "1" && a.LiveLog != nil {
+		a.followLogs(w, r, id, job.LogsRef)
 		return
 	}
-	a.streamArtifact(w, job.LogsRef, "text/plain; charset=utf-8")
+	// Final logs artifact wins once the job is done.
+	if job.LogsRef != "" {
+		a.streamArtifact(w, job.LogsRef, "text/plain; charset=utf-8")
+		return
+	}
+	// Otherwise serve whatever the live log has so far.
+	if a.LiveLog != nil && a.LiveLog.Exists(id) {
+		rc, err := a.LiveLog.Open(id)
+		if err == nil {
+			defer rc.Close()
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			_, _ = io.Copy(w, rc)
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "no logs")
+}
+
+// followLogs tails the live log, flushing new bytes until the job reaches a
+// terminal state. Falls back to the final artifact if the live file is gone.
+func (a *API) followLogs(w http.ResponseWriter, r *http.Request, id, logsRef string) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	flusher, _ := w.(http.Flusher)
+	var offset int64
+	for {
+		if rc, err := a.LiveLog.Open(id); err == nil {
+			if sk, ok := rc.(io.Seeker); ok {
+				_, _ = sk.Seek(offset, io.SeekStart)
+			}
+			n, _ := io.Copy(w, rc)
+			rc.Close()
+			offset += n
+			if n > 0 && flusher != nil {
+				flusher.Flush()
+			}
+		}
+		job, err := a.Store.GetJob(id)
+		if err != nil || job.Status == "done" || job.Status == "failed" || job.Status == "cancelled" {
+			return
+		}
+		select {
+		case <-r.Context().Done():
+			return
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }

@@ -290,6 +290,10 @@ func (a *Agent) runJob(ctx context.Context, job *client.Job) {
 		}
 	}
 
+	// Stream live stdout/stderr to the control plane while the job runs.
+	sink := newLogSink(a.Client, job.ID)
+	go sink.run(ctx)
+
 	spec := runner.Spec{
 		JobID:        job.ID,
 		Image:        job.Image,
@@ -303,9 +307,11 @@ func (a *Agent) runJob(ctx context.Context, job *client.Job) {
 		CPULimit:     a.Cfg.CPULimit,
 		MemLimit:     a.Cfg.MemLimit,
 		DockerSocket: a.Cfg.DockerSocket,
+		LogSink:      sink,
 	}
 
 	res, err := a.Runner.Run(ctx, spec)
+	sink.flush(ctx) // push any remaining buffered output
 	status, errMsg := "done", ""
 	exit := res.ExitCode
 	switch {

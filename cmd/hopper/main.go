@@ -73,9 +73,15 @@ func cmdSubmit(ctx context.Context, c *client.Client, args []string) error {
 		return fmt.Errorf("--image is required")
 	}
 
+	// Command precedence: args after `--` (preserves shell quoting), else --cmd.
+	command := fields(*cmd)
+	if fs.NArg() > 0 {
+		command = fs.Args()
+	}
+
 	spec := client.JobSpec{
 		Image:    *image,
-		Command:  fields(*cmd),
+		Command:  command,
 		Labels:   csv(*labels),
 		Priority: *prio,
 		TimeoutS: *timeout,
@@ -179,10 +185,14 @@ func cmdGet(ctx context.Context, c *client.Client, args []string) error {
 }
 
 func cmdLogs(ctx context.Context, c *client.Client, args []string) error {
-	if len(args) != 1 {
-		return fmt.Errorf("usage: hopper logs <job-id>")
+	fs := flag.NewFlagSet("logs", flag.ExitOnError)
+	follow := fs.Bool("follow", false, "stream logs live until the job finishes")
+	fs.BoolVar(follow, "f", false, "shorthand for --follow")
+	_ = fs.Parse(args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("usage: hopper logs [--follow] <job-id>")
 	}
-	rc, err := c.DownloadLogs(ctx, args[0])
+	rc, err := c.DownloadLogs(ctx, fs.Arg(0), *follow)
 	if err != nil {
 		return err
 	}

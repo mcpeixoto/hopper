@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/mcpeixoto/hopper/internal/config"
 	gh "github.com/mcpeixoto/hopper/internal/github"
 	"github.com/mcpeixoto/hopper/internal/handler"
+	"github.com/mcpeixoto/hopper/internal/livelog"
 	"github.com/mcpeixoto/hopper/internal/notify"
 	"github.com/mcpeixoto/hopper/internal/reaper"
 	"github.com/mcpeixoto/hopper/internal/scheduler"
@@ -64,10 +66,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("blob store: %v", err)
 	}
+	live, err := livelog.New(filepath.Join(cfg.ArtifactDir, "live"))
+	if err != nil {
+		log.Fatalf("live log store: %v", err)
+	}
 
 	api := &handler.API{
 		Store:           db,
 		Blob:            blobs,
+		LiveLog:         live,
 		Notifier:        notify.New(cfg.NotifyURL, cfg.NotifySecret),
 		LeaseSeconds:    cfg.LeaseSeconds,
 		LongPollSeconds: cfg.LongPollSeconds,

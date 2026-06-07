@@ -296,6 +296,28 @@ func (c *Client) UploadLogs(ctx context.Context, jobID string, r io.Reader) (Art
 	return c.upload(ctx, "/api/jobs/"+jobID+"/logs", r)
 }
 
+// AppendLog streams a chunk of live stdout/stderr for a running job (node).
+func (c *Client) AppendLog(ctx context.Context, jobID string, chunk []byte) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.BaseURL+"/api/jobs/"+jobID+"/logs/append", bytes.NewReader(chunk))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "text/plain")
+	if c.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return errStatus(resp)
+	}
+	return nil
+}
+
 // DownloadInput streams a job's input blob (node). Caller must Close the reader.
 func (c *Client) DownloadInput(ctx context.Context, jobID string) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/api/jobs/"+jobID+"/input", nil)
@@ -321,9 +343,29 @@ func (c *Client) DownloadResult(ctx context.Context, jobID string) (io.ReadClose
 	return c.getStream(ctx, "/api/jobs/"+jobID+"/result")
 }
 
-// DownloadLogs streams a job's captured logs (operator). Caller closes it.
-func (c *Client) DownloadLogs(ctx context.Context, jobID string) (io.ReadCloser, error) {
-	return c.getStream(ctx, "/api/jobs/"+jobID+"/logs")
+// DownloadLogs streams a job's logs (operator). With follow it tails the live log
+// until the job finishes (using a request with no client timeout). Caller closes it.
+func (c *Client) DownloadLogs(ctx context.Context, jobID string, follow bool) (io.ReadCloser, error) {
+	path := "/api/jobs/" + jobID + "/logs"
+	if !follow {
+		return c.getStream(ctx, path)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+path+"?follow=1", nil)
+	if err != nil {
+		return nil, err
+	}
+	if c.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+	}
+	resp, err := (&http.Client{}).Do(req) // no timeout: follow holds the connection open
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		defer resp.Body.Close()
+		return nil, errStatus(resp)
+	}
+	return resp.Body, nil
 }
 
 // getStream issues a GET and returns the body on 2xx (caller closes it).
