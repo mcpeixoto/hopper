@@ -20,6 +20,7 @@ import (
 	"github.com/mcpeixoto/hopper/internal/client"
 	"github.com/mcpeixoto/hopper/internal/config"
 	"github.com/mcpeixoto/hopper/internal/runner"
+	"github.com/mcpeixoto/hopper/internal/telemetry"
 	"github.com/mcpeixoto/hopper/internal/version"
 )
 
@@ -67,6 +68,7 @@ type Agent struct {
 	lastErr    string
 	lastLog    string
 	startedAt  string
+	images     []telemetry.Image // cached docker image list, refreshed periodically
 }
 
 // New builds an agent from config. It augments the configured labels with
@@ -74,6 +76,7 @@ type Agent struct {
 // platform across a mixed fleet.
 func New(cfg config.AgentConfig, workRoot string) *Agent {
 	labels := autoLabels(cfg.Labels)
+	_ = os.MkdirAll(workRoot, 0o755) // ensure it exists for disk telemetry
 	return &Agent{
 		Client:    client.New(cfg.ControlURL, cfg.NodeToken),
 		Runner:    runner.New(""),
@@ -207,15 +210,35 @@ func (a *Agent) register(ctx context.Context) (string, error) {
 func (a *Agent) heartbeatLoop(ctx context.Context, workerID string) {
 	t := time.NewTicker(heartbeatInterval)
 	defer t.Stop()
+	a.beat(ctx, workerID, true) // immediate first beat with telemetry
+	ticks := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			if err := a.Client.Heartbeat(ctx, workerID); err != nil && ctx.Err() == nil {
-				log.Printf("agent heartbeat failed: %v", err)
-			}
+			ticks++
+			a.beat(ctx, workerID, ticks%10 == 0) // refresh image list every ~5 min
 		}
+	}
+}
+
+// beat sends one heartbeat carrying a fresh telemetry snapshot. When refreshImages
+// is set it re-lists the node's docker images (cheap host metrics are always taken).
+func (a *Agent) beat(ctx context.Context, workerID string, refreshImages bool) {
+	if refreshImages {
+		imgs := telemetry.DockerImages(ctx, "")
+		a.mu.Lock()
+		a.images = imgs
+		a.mu.Unlock()
+	}
+	a.mu.Lock()
+	running := len(a.running)
+	imgs := a.images
+	a.mu.Unlock()
+	snap := telemetry.Collect(a.WorkRoot, a.slots(), running, imgs)
+	if err := a.Client.Heartbeat(ctx, workerID, snap); err != nil && ctx.Err() == nil {
+		log.Printf("agent heartbeat failed: %v", err)
 	}
 }
 

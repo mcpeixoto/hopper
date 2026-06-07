@@ -162,9 +162,14 @@ func (c *Client) RegisterWorker(ctx context.Context, hostname string, labels []s
 	return w, err
 }
 
-// Heartbeat refreshes this node's liveness and renews its job leases.
-func (c *Client) Heartbeat(ctx context.Context, workerID string) error {
-	return c.do(ctx, http.MethodPost, "/api/workers/"+workerID+"/heartbeat", nil, nil)
+// Heartbeat refreshes this node's liveness and renews its job leases. If
+// telemetry is non-nil it is reported as the node's current resource snapshot.
+func (c *Client) Heartbeat(ctx context.Context, workerID string, telemetry any) error {
+	var body any
+	if telemetry != nil {
+		body = map[string]any{"telemetry": telemetry}
+	}
+	return c.do(ctx, http.MethodPost, "/api/workers/"+workerID+"/heartbeat", body, nil)
 }
 
 // ClaimJob long-polls for a job. Returns (nil, nil) when none is available (204).

@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS workers (
     status         TEXT NOT NULL DEFAULT 'online'
                    CHECK (status IN ('online','stale','dead','draining')),
     last_heartbeat TEXT,
+    telemetry_json TEXT NOT NULL DEFAULT '{}',
     registered_at  TEXT NOT NULL,
     updated_at     TEXT NOT NULL
 );
@@ -110,7 +111,15 @@ func Open(path string) (*Store, error) {
 	if _, err = db.Exec(schema); err != nil {
 		return nil, err
 	}
-	return &Store{db: db}, nil
+	s := &Store{db: db}
+	s.migrate()
+	return s, nil
+}
+
+// migrate applies idempotent additive migrations for databases created by an
+// earlier schema. Errors (e.g. "duplicate column") are ignored by design.
+func (s *Store) migrate() {
+	_, _ = s.db.Exec(`ALTER TABLE workers ADD COLUMN telemetry_json TEXT NOT NULL DEFAULT '{}'`)
 }
 
 // Close closes the underlying database.

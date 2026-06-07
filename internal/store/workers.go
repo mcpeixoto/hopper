@@ -9,13 +9,14 @@ import (
 
 // Worker is a node that claims and runs jobs.
 type Worker struct {
-	ID            string   `json:"id"`
-	Hostname      string   `json:"hostname"`
-	Labels        []string `json:"labels"`
-	Status        string   `json:"status"`
-	LastHeartbeat string   `json:"last_heartbeat,omitempty"`
-	RegisteredAt  string   `json:"registered_at"`
-	UpdatedAt     string   `json:"updated_at"`
+	ID            string          `json:"id"`
+	Hostname      string          `json:"hostname"`
+	Labels        []string        `json:"labels"`
+	Status        string          `json:"status"`
+	LastHeartbeat string          `json:"last_heartbeat,omitempty"`
+	Telemetry     json.RawMessage `json:"telemetry,omitempty"`
+	RegisteredAt  string          `json:"registered_at"`
+	UpdatedAt     string          `json:"updated_at"`
 }
 
 // RegisterWorker records (or re-registers, keyed by hostname) a worker and
@@ -59,11 +60,24 @@ func (s *Store) RegisterWorker(hostname string, labels []string) (Worker, error)
 }
 
 // HeartbeatWorker refreshes a worker's liveness timestamp and marks it online.
-func (s *Store) HeartbeatWorker(id string) error {
+// telemetryJSON, when non-empty, updates the node's reported telemetry.
+func (s *Store) HeartbeatWorker(id, telemetryJSON string) error {
 	now := nowISO()
-	res, err := s.db.Exec(`
-		UPDATE workers SET last_heartbeat=?, status='online', updated_at=? WHERE id=?`,
-		now, now, id)
+	var (
+		res interface {
+			RowsAffected() (int64, error)
+		}
+		err error
+	)
+	if telemetryJSON != "" {
+		res, err = s.db.Exec(`
+			UPDATE workers SET last_heartbeat=?, status='online', telemetry_json=?, updated_at=? WHERE id=?`,
+			now, telemetryJSON, now, id)
+	} else {
+		res, err = s.db.Exec(`
+			UPDATE workers SET last_heartbeat=?, status='online', updated_at=? WHERE id=?`,
+			now, now, id)
+	}
 	if err != nil {
 		return err
 	}
@@ -140,7 +154,7 @@ func (s *Store) CountWorkersByStatus() (map[string]int, error) {
 
 const workerSelect = `
 	SELECT id, hostname, labels_json, status, COALESCE(last_heartbeat,''),
-	    registered_at, updated_at
+	    COALESCE(telemetry_json,'{}'), registered_at, updated_at
 	FROM workers`
 
 func (s *Store) workerByHostname(hostname string) (Worker, error) {
@@ -149,9 +163,9 @@ func (s *Store) workerByHostname(hostname string) (Worker, error) {
 
 func scanWorker(row rowScanner) (Worker, error) {
 	var w Worker
-	var labelsJSON string
+	var labelsJSON, telemetryJSON string
 	err := row.Scan(&w.ID, &w.Hostname, &labelsJSON, &w.Status, &w.LastHeartbeat,
-		&w.RegisteredAt, &w.UpdatedAt)
+		&telemetryJSON, &w.RegisteredAt, &w.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Worker{}, ErrNotFound
 	}
@@ -160,5 +174,8 @@ func scanWorker(row rowScanner) (Worker, error) {
 	}
 	_ = json.Unmarshal([]byte(labelsJSON), &w.Labels)
 	w.Labels = orEmptySlice(w.Labels)
+	if telemetryJSON != "" && telemetryJSON != "{}" {
+		w.Telemetry = json.RawMessage(telemetryJSON)
+	}
 	return w, nil
 }

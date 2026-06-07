@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/mcpeixoto/hopper/internal/blob"
@@ -233,10 +234,21 @@ func (a *API) RegisterWorker(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, worker)
 }
 
+// heartbeatRequest optionally carries the node's latest telemetry snapshot.
+type heartbeatRequest struct {
+	Telemetry json.RawMessage `json:"telemetry"`
+}
+
 // Heartbeat refreshes worker liveness and renews its job leases. Node auth.
 func (a *API) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if err := a.Store.HeartbeatWorker(id); err != nil {
+	var req heartbeatRequest
+	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, maxBodyBytes)).Decode(&req) // body optional
+	tel := ""
+	if len(req.Telemetry) > 0 {
+		tel = string(req.Telemetry)
+	}
+	if err := a.Store.HeartbeatWorker(id, tel); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "worker not found")
 			return
@@ -251,7 +263,7 @@ func (a *API) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-// ListWorkers returns the node fleet. Operator auth.
+// ListWorkers returns the node fleet (with telemetry). Operator auth.
 func (a *API) ListWorkers(w http.ResponseWriter, r *http.Request) {
 	workers, err := a.Store.ListWorkers()
 	if err != nil {
@@ -262,6 +274,58 @@ func (a *API) ListWorkers(w http.ResponseWriter, r *http.Request) {
 		workers = []store.Worker{}
 	}
 	writeJSON(w, http.StatusOK, workers)
+}
+
+// GetWorker returns a single node with its telemetry. Operator auth.
+func (a *API) GetWorker(w http.ResponseWriter, r *http.Request) {
+	worker, err := a.Store.GetWorker(r.PathValue("id"))
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "worker not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	writeJSON(w, http.StatusOK, worker)
+}
+
+// Images reports which nodes have which cached docker images. With ?image=substr
+// it returns only nodes whose cache contains a matching image. Operator auth.
+func (a *API) Images(w http.ResponseWriter, r *http.Request) {
+	workers, err := a.Store.ListWorkers()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	filter := r.URL.Query().Get("image")
+	type nodeImages struct {
+		WorkerID string   `json:"worker_id"`
+		Hostname string   `json:"hostname"`
+		Images   []string `json:"images"`
+	}
+	out := []nodeImages{}
+	for _, wk := range workers {
+		var tel struct {
+			Images []struct {
+				Repo string `json:"repo"`
+			} `json:"images"`
+		}
+		if len(wk.Telemetry) > 0 {
+			_ = json.Unmarshal(wk.Telemetry, &tel)
+		}
+		var imgs []string
+		for _, im := range tel.Images {
+			if filter == "" || strings.Contains(im.Repo, filter) {
+				imgs = append(imgs, im.Repo)
+			}
+		}
+		if filter != "" && len(imgs) == 0 {
+			continue
+		}
+		out = append(out, nodeImages{WorkerID: wk.ID, Hostname: wk.Hostname, Images: imgs})
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // --- JSON helpers ---

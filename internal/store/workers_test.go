@@ -30,8 +30,29 @@ func TestRegisterWorkerIdempotent(t *testing.T) {
 
 func TestHeartbeatUnknownWorker(t *testing.T) {
 	s := newTestStore(t)
-	if err := s.HeartbeatWorker("ghost"); err != ErrNotFound {
+	if err := s.HeartbeatWorker("ghost", ""); err != ErrNotFound {
 		t.Fatalf("want ErrNotFound, got %v", err)
+	}
+}
+
+func TestHeartbeatStoresTelemetry(t *testing.T) {
+	s := newTestStore(t)
+	w, _ := s.RegisterWorker("node", nil)
+	tel := `{"load1":0.5,"cpus":8,"images":[{"repo":"alpine:3.20","size_mb":7}]}`
+	if err := s.HeartbeatWorker(w.ID, tel); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.GetWorker(w.ID)
+	if string(got.Telemetry) != tel {
+		t.Fatalf("telemetry not stored: %s", got.Telemetry)
+	}
+	// An empty-telemetry heartbeat must not wipe the stored telemetry.
+	if err := s.HeartbeatWorker(w.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = s.GetWorker(w.ID)
+	if string(got.Telemetry) != tel {
+		t.Fatalf("empty heartbeat wiped telemetry: %s", got.Telemetry)
 	}
 }
 
