@@ -39,6 +39,7 @@ no config file.
 | `HOPPER_REGISTRY_USER` | _(none)_ | registry username |
 | `HOPPER_REGISTRY_PASSWORD` | _(none)_ | registry password / token (sent on stdin, not argv) |
 | `HOPPER_ALLOW_NET` | _(off)_ | set to `1` to give job containers network (default `--network none`) |
+| `HOPPER_MOUNT_DOCKER_SOCKET` | _(off)_ | mount the host docker socket into jobs (container-based/CI steps; root-equivalent) |
 | `HOPPER_CPU` | _(unset)_ | docker `--cpus` cap per job, e.g. `2` |
 | `HOPPER_MEM` | _(unset)_ | docker `--memory` cap per job, e.g. `512m` |
 | `HOPPER_POLL_INTERVAL` | `2` | seconds between claim retries after an error |

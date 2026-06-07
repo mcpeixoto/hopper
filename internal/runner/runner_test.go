@@ -60,3 +60,15 @@ func TestBuildRunArgsNoMountsWhenUnset(t *testing.T) {
 		t.Fatalf("did not expect volume mounts: %v", args)
 	}
 }
+
+func TestBuildRunArgsDockerSocket(t *testing.T) {
+	args := BuildRunArgs(Spec{JobID: "j", Image: "img", DockerSocket: true})
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, "/var/run/docker.sock:/var/run/docker.sock") {
+		t.Fatalf("expected docker socket mount: %s", joined)
+	}
+	// And not present when disabled.
+	if strings.Contains(strings.Join(BuildRunArgs(Spec{JobID: "j", Image: "img"}), " "), "docker.sock") {
+		t.Fatal("socket should not be mounted by default")
+	}
+}

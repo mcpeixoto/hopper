@@ -16,17 +16,18 @@ import (
 
 // Spec describes a single container run.
 type Spec struct {
-	JobID      string
-	Image      string
-	Command    []string
-	Env        map[string]string
-	TimeoutS   int
-	InDir      string // host path mounted read-only at /work/in
-	OutDir     string // host path mounted read-write at /work/out
-	PullPolicy string // "always" | "if-not-present"
-	AllowNet   bool   // when false, the container runs with --network none
-	CPULimit   string // docker --cpus value ("" = unset)
-	MemLimit   string // docker --memory value ("" = unset)
+	JobID        string
+	Image        string
+	Command      []string
+	Env          map[string]string
+	TimeoutS     int
+	InDir        string // host path mounted read-only at /work/in
+	OutDir       string // host path mounted read-write at /work/out
+	PullPolicy   string // "always" | "if-not-present"
+	AllowNet     bool   // when false, the container runs with --network none
+	CPULimit     string // docker --cpus value ("" = unset)
+	MemLimit     string // docker --memory value ("" = unset)
+	DockerSocket bool   // mount the host docker socket (for container-based / CI jobs)
 }
 
 // Result is the outcome of a run.
@@ -59,6 +60,9 @@ func BuildRunArgs(spec Spec) []string {
 	}
 	if spec.OutDir != "" {
 		args = append(args, "-v", spec.OutDir+":/work/out")
+	}
+	if spec.DockerSocket {
+		args = append(args, "-v", "/var/run/docker.sock:/var/run/docker.sock")
 	}
 	args = append(args, "-w", "/work")
 

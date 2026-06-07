@@ -75,6 +75,7 @@ type AgentConfig struct {
 	Labels          []string // capabilities this node advertises
 	PullPolicy      string   // "always" | "if-not-present"
 	AllowNet        bool     // pass --network to the job container instead of --network none
+	DockerSocket    bool     // mount the host docker socket into job containers (CI / DinD)
 	CPULimit        string   // docker --cpus value ("" = unset)
 	MemLimit        string   // docker --memory value ("" = unset)
 	PollInterval    int      // seconds between claim attempts when idle
@@ -99,6 +100,7 @@ func LoadAgent() AgentConfig {
 		Labels:          splitList(env("HOPPER_LABELS", "")),
 		PullPolicy:      env("HOPPER_PULL_POLICY", "if-not-present"),
 		AllowNet:        env("HOPPER_ALLOW_NET", "") != "",
+		DockerSocket:    env("HOPPER_MOUNT_DOCKER_SOCKET", "") != "",
 		CPULimit:        env("HOPPER_CPU", ""),
 		MemLimit:        env("HOPPER_MEM", ""),
 		PollInterval:    envInt("HOPPER_POLL_INTERVAL", 2),

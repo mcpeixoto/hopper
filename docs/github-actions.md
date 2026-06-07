@@ -71,7 +71,9 @@ jobs:
 - **Trust:** a runner executes arbitrary repo code as the container user, with network on.
   Only enable this for **your own repositories** (or trusted forks). The
   [trust model](security.md) applies in full.
-- **Container-based steps / services** need a Docker daemon inside the runner
-  (Docker-in-Docker or a mounted socket). v1 runs plain steps and most actions; DinD support
-  is on the [roadmap](roadmap.md).
+- **Container-based steps / `services:`** need Docker inside the runner. Enable it per CI node
+  by mounting the host Docker socket: set `HOPPER_MOUNT_DOCKER_SOCKET=1` on the agent. Jobs on
+  that node then get `/var/run/docker.sock` and can run container steps. This grants the
+  container full control of the host Docker daemon (root-equivalent) — only enable on nodes you
+  dedicate to trusted CI.
 - Runner jobs have `max_attempts=1` — a failed CI run is never silently retried.

@@ -241,17 +241,18 @@ func (a *Agent) runJob(ctx context.Context, job *client.Job) {
 	}
 
 	spec := runner.Spec{
-		JobID:      job.ID,
-		Image:      job.Image,
-		Command:    job.Command,
-		Env:        job.Env,
-		TimeoutS:   job.TimeoutS,
-		InDir:      inDir,
-		OutDir:     outDir,
-		PullPolicy: a.Cfg.PullPolicy,
-		AllowNet:   a.Cfg.AllowNet,
-		CPULimit:   a.Cfg.CPULimit,
-		MemLimit:   a.Cfg.MemLimit,
+		JobID:        job.ID,
+		Image:        job.Image,
+		Command:      job.Command,
+		Env:          job.Env,
+		TimeoutS:     job.TimeoutS,
+		InDir:        inDir,
+		OutDir:       outDir,
+		PullPolicy:   a.Cfg.PullPolicy,
+		AllowNet:     a.Cfg.AllowNet,
+		CPULimit:     a.Cfg.CPULimit,
+		MemLimit:     a.Cfg.MemLimit,
+		DockerSocket: a.Cfg.DockerSocket,
 	}
 
 	res, err := a.Runner.Run(ctx, spec)
