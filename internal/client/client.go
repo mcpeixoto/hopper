@@ -52,12 +52,30 @@ type JobSpec struct {
 
 // Worker mirrors the control plane's worker JSON.
 type Worker struct {
-	ID            string   `json:"id"`
-	Hostname      string   `json:"hostname"`
-	Labels        []string `json:"labels"`
-	Status        string   `json:"status"`
-	LastHeartbeat string   `json:"last_heartbeat,omitempty"`
-	RegisteredAt  string   `json:"registered_at"`
+	ID            string     `json:"id"`
+	Hostname      string     `json:"hostname"`
+	Labels        []string   `json:"labels"`
+	Status        string     `json:"status"`
+	LastHeartbeat string     `json:"last_heartbeat,omitempty"`
+	Telemetry     *Telemetry `json:"telemetry,omitempty"`
+	RegisteredAt  string     `json:"registered_at"`
+}
+
+// Telemetry is a node's reported resource snapshot.
+type Telemetry struct {
+	Load1      float64 `json:"load1"`
+	Load5      float64 `json:"load5"`
+	Load15     float64 `json:"load15"`
+	CPUs       int     `json:"cpus"`
+	MemTotalMB int64   `json:"mem_total_mb"`
+	MemFreeMB  int64   `json:"mem_free_mb"`
+	DiskFreeMB int64   `json:"disk_free_mb"`
+	Slots      int     `json:"slots"`
+	Running    int     `json:"running"`
+	Images     []struct {
+		Repo   string `json:"repo"`
+		SizeMB int64  `json:"size_mb"`
+	} `json:"images"`
 }
 
 // Client talks to a Hopper control plane.
@@ -104,11 +122,36 @@ func (c *Client) ListJobs(ctx context.Context, status string) ([]Job, error) {
 	return jobs, err
 }
 
-// ListWorkers lists the node fleet.
+// ListWorkers lists the node fleet (with telemetry).
 func (c *Client) ListWorkers(ctx context.Context) ([]Worker, error) {
 	var workers []Worker
 	err := c.do(ctx, http.MethodGet, "/api/workers", nil, &workers)
 	return workers, err
+}
+
+// GetWorker returns one node with its telemetry.
+func (c *Client) GetWorker(ctx context.Context, id string) (Worker, error) {
+	var w Worker
+	err := c.do(ctx, http.MethodGet, "/api/workers/"+id, nil, &w)
+	return w, err
+}
+
+// NodeImages is which images a node has cached (from GET /api/images).
+type NodeImages struct {
+	WorkerID string   `json:"worker_id"`
+	Hostname string   `json:"hostname"`
+	Images   []string `json:"images"`
+}
+
+// Images reports cached docker images per node, optionally filtered by substring.
+func (c *Client) Images(ctx context.Context, filter string) ([]NodeImages, error) {
+	path := "/api/images"
+	if filter != "" {
+		path += "?image=" + filter
+	}
+	var out []NodeImages
+	err := c.do(ctx, http.MethodGet, path, nil, &out)
+	return out, err
 }
 
 // CancelJob cancels a job.

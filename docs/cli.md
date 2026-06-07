@@ -22,7 +22,11 @@ hopper result -o ./out <job-id>          # extracts the output tar.gz into ./out
 hopper jobs                              # list (optionally --status queued|in_flight|done|failed)
 hopper get <job-id>                      # full detail
 hopper logs <job-id>                     # captured stdout/stderr
-hopper nodes                             # the worker fleet
+
+# Fleet & nodes
+hopper nodes                             # fleet with load / slots / image-cache count
+hopper node <worker-id>                  # node detail: cpu, load, mem, disk, cached images
+hopper images [--image alpine]           # which nodes have which docker images cached
 
 # Control
 hopper cancel <job-id>

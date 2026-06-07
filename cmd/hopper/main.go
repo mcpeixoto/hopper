@@ -40,6 +40,10 @@ func main() {
 		err = cmdSimple(ctx, os.Args[2:], c.CancelJob, "cancelled")
 	case "nodes":
 		err = cmdNodes(ctx, c)
+	case "node":
+		err = cmdNode(ctx, c, os.Args[2:])
+	case "images":
+		err = cmdImages(ctx, c, os.Args[2:])
 	case "schedule":
 		err = cmdSchedule(ctx, c, os.Args[2:])
 	case "version":
@@ -235,9 +239,51 @@ func cmdNodes(ctx context.Context, c *client.Client) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%-20s %-12s %-8s %s\n", "HOSTNAME", "STATUS", "LABELS", "LAST HEARTBEAT")
+	fmt.Printf("%-18s %-10s %-9s %-7s %-6s %-8s %s\n", "HOSTNAME", "STATUS", "LOAD", "SLOTS", "IMGS", "CPUS", "ID")
 	for _, w := range workers {
-		fmt.Printf("%-20s %-12s %-8s %s\n", trunc(w.Hostname, 20), w.Status, strings.Join(w.Labels, ","), w.LastHeartbeat)
+		load, slots, imgs, cpus := "—", "—", "—", "—"
+		if t := w.Telemetry; t != nil {
+			load = fmt.Sprintf("%.2f", t.Load1)
+			slots = fmt.Sprintf("%d/%d", t.Running, t.Slots)
+			imgs = fmt.Sprintf("%d", len(t.Images))
+			cpus = fmt.Sprintf("%d", t.CPUs)
+		}
+		fmt.Printf("%-18s %-10s %-9s %-7s %-6s %-8s %s\n", trunc(w.Hostname, 18), w.Status, load, slots, imgs, cpus, w.ID)
+	}
+	return nil
+}
+
+func cmdNode(ctx context.Context, c *client.Client, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("usage: hopper node <worker-id>")
+	}
+	w, err := c.GetWorker(ctx, args[0])
+	if err != nil {
+		return err
+	}
+	fmt.Printf("host:      %s\nstatus:    %s\nlabels:    %s\nheartbeat: %s\n",
+		w.Hostname, w.Status, strings.Join(w.Labels, ","), w.LastHeartbeat)
+	if t := w.Telemetry; t != nil {
+		fmt.Printf("cpus:      %d\nload:      %.2f / %.2f / %.2f\nmemory:    %d / %d MB free\ndisk:      %d MB free\nslots:     %d/%d busy\n",
+			t.CPUs, t.Load1, t.Load5, t.Load15, t.MemFreeMB, t.MemTotalMB, t.DiskFreeMB, t.Running, t.Slots)
+		fmt.Printf("cached images (%d):\n", len(t.Images))
+		for _, im := range t.Images {
+			fmt.Printf("  %-40s %dMB\n", im.Repo, im.SizeMB)
+		}
+	}
+	return nil
+}
+
+func cmdImages(ctx context.Context, c *client.Client, args []string) error {
+	fs := flag.NewFlagSet("images", flag.ExitOnError)
+	filter := fs.String("image", "", "only nodes whose cache matches this substring")
+	_ = fs.Parse(args)
+	nodes, err := c.Images(ctx, *filter)
+	if err != nil {
+		return err
+	}
+	for _, n := range nodes {
+		fmt.Printf("%s (%s): %s\n", n.Hostname, n.WorkerID, strings.Join(n.Images, ", "))
 	}
 	return nil
 }
@@ -262,7 +308,9 @@ func usage() {
   hopper logs <id>
   hopper result [-o DIR] <id>
   hopper cancel <id>
-  hopper nodes
+  hopper nodes                       # fleet with load / slots / image-cache
+  hopper node <worker-id>            # node detail + cached images
+  hopper images [--image substr]     # which nodes have which images
   hopper schedule list | create --cron "0 2 * * *" --image IMG [--cmd ...] | rm <id>
   hopper version
 

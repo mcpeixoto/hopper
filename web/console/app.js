@@ -57,18 +57,42 @@ function renderJobs(jobs) {
     tr.addEventListener("click", () => showDetail(tr.dataset.id)));
 }
 
+let lastWorkers = [];
 function renderFleet(workers) {
+  lastWorkers = workers;
   $("#fleet-count").textContent = workers.length;
   const el = $("#fleet");
   if (!workers.length) { el.innerHTML = `<p class="muted">No nodes registered.</p>`; return; }
   el.innerHTML = workers.map((w) => {
     const color = w.status === "online" ? "var(--green)" : w.status === "dead" ? "var(--red)" : "var(--iron)";
-    return `<div class="node">
+    const t = w.telemetry || {};
+    const load = t.load1 != null ? `load ${t.load1.toFixed(2)}` : "";
+    const slots = t.slots != null ? `${t.running || 0}/${t.slots} slots` : "";
+    const imgs = t.images ? `${t.images.length} img` : "";
+    const meta = [load, slots, imgs].filter(Boolean).join(" · ");
+    return `<div class="node" data-id="${w.id}">
       <span class="dot" style="background:${color}"></span>
       <span class="name">${esc(w.hostname)}</span>
-      <span class="labels">${(w.labels || []).join(", ") || "general"}</span>
+      <span class="labels">${meta || (w.labels || []).join(", ") || "general"}</span>
     </div>`;
   }).join("");
+  el.querySelectorAll(".node").forEach((n) =>
+    n.addEventListener("click", () => showNode(n.dataset.id)));
+}
+
+function showNode(id) {
+  const w = lastWorkers.find((x) => x.id === id);
+  if (!w) return;
+  const t = w.telemetry || {};
+  const imgs = (t.images || []).map((i) => `  ${i.repo}  (${i.size_mb}MB)`).join("\n") || "  (none reported)";
+  $("#node-title").textContent = w.hostname + "  ·  " + w.status;
+  $("#node-body").textContent =
+    `worker:   ${w.id}\nlabels:   ${(w.labels || []).join(", ") || "—"}\n` +
+    `cpus:     ${t.cpus ?? "—"}\nload:     ${t.load1 ?? "—"} / ${t.load5 ?? "—"} / ${t.load15 ?? "—"}\n` +
+    `memory:   ${t.mem_free_mb ?? "—"} / ${t.mem_total_mb ?? "—"} MB free\n` +
+    `disk:     ${t.disk_free_mb ?? "—"} MB free\nslots:    ${t.running ?? 0}/${t.slots ?? "—"} busy\n` +
+    `heartbeat:${w.last_heartbeat || "—"}\n\ncached images (${(t.images || []).length}):\n${imgs}`;
+  $("#node-detail").showModal();
 }
 
 function renderStats(jobs) {
@@ -162,6 +186,7 @@ $("#filters").addEventListener("click", (e) => {
   refresh();
 });
 
+$("#node-close").addEventListener("click", () => $("#node-detail").close());
 $("#d-close").addEventListener("click", () => $("#job-detail").close());
 $("#d-cancel").addEventListener("click", async () => {
   if (!currentJob) return;
