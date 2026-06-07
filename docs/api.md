@@ -58,8 +58,9 @@ produced no output; `202` while pending; `409` if failed/cancelled.
 ### `GET /api/jobs/{id}/logs` — download captured logs
 Combined stdout/stderr as text. → `200 text/plain`, or `404` if the job produced none.
 
-### `GET /api/jobs` — list jobs
-Optional `?status=queued|in_flight|done|failed|cancelled`. → `200 [job, …]` (newest first).
+### `GET /api/jobs` — list jobs / history
+Filters (combinable): `?status=`, `?image=` (substring), `?submitted_by=` (substring),
+`?since=` (RFC3339, `created_at >=`), `?limit=`. → `200 [job, …]` (newest first).
 
 ### `GET /api/jobs/{id}` — get one job
 → `200 job` or `404`.

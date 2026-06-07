@@ -97,7 +97,8 @@ input:focus { outline: none; border-color: var(--accent); }
 .stat .n { font-size: 26px; font-weight: 800; }
 .stat .l { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
 
-.filters { display: flex; gap: 6px; }
+.filters { display: flex; gap: 6px; align-items: center; }
+.search { width: 150px; padding: 5px 10px; font-size: 12px; border-radius: 20px; }
 .chip {
   background: transparent; border: 1px solid var(--line); color: var(--muted);
   border-radius: 20px; padding: 4px 12px; font-size: 12px; cursor: pointer;

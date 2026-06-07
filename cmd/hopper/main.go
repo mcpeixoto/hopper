@@ -8,7 +8,9 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -122,16 +124,45 @@ func waitForJob(ctx context.Context, c *client.Client, id string) error {
 func cmdJobs(ctx context.Context, c *client.Client, args []string) error {
 	fs := flag.NewFlagSet("jobs", flag.ExitOnError)
 	status := fs.String("status", "", "filter by status")
+	image := fs.String("image", "", "filter by image substring")
+	by := fs.String("submitted-by", "", "filter by submitter substring")
+	since := fs.String("since", "", "only jobs created at/after this RFC3339 time")
+	limit := fs.Int("limit", 0, "max rows")
 	_ = fs.Parse(args)
-	jobs, err := c.ListJobs(ctx, *status)
+
+	q := url.Values{}
+	for k, v := range map[string]string{"status": *status, "image": *image, "submitted_by": *by, "since": *since} {
+		if v != "" {
+			q.Set(k, v)
+		}
+	}
+	if *limit > 0 {
+		q.Set("limit", strconv.Itoa(*limit))
+	}
+	jobs, err := c.ListJobsFiltered(ctx, q)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%-20s %-10s %-26s %-8s\n", "ID", "STATUS", "IMAGE", "TRY")
+	fmt.Printf("%-20s %-10s %-24s %-6s %-9s %s\n", "ID", "STATUS", "IMAGE", "TRY", "DURATION", "CREATED")
 	for _, j := range jobs {
-		fmt.Printf("%-20s %-10s %-26s %d/%d\n", j.ID, j.Status, trunc(j.Image, 26), j.Attempts, j.MaxAttempts)
+		fmt.Printf("%-20s %-10s %-24s %d/%-3d %-9s %s\n",
+			j.ID, j.Status, trunc(j.Image, 24), j.Attempts, j.MaxAttempts, duration(j.StartedAt, j.FinishedAt), j.CreatedAt)
 	}
 	return nil
+}
+
+// duration formats elapsed time between two RFC3339 stamps ("—" if unavailable).
+func duration(start, end string) string {
+	if start == "" || end == "" {
+		return "—"
+	}
+	s, err1 := time.Parse(time.RFC3339, start)
+	e, err2 := time.Parse(time.RFC3339, end)
+	if err1 != nil || err2 != nil || e.Before(s) {
+		return "—"
+	}
+	d := e.Sub(s).Round(time.Second)
+	return d.String()
 }
 
 func cmdGet(ctx context.Context, c *client.Client, args []string) error {

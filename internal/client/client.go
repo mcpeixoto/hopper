@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -33,8 +34,11 @@ type Job struct {
 	TimeoutS         int               `json:"timeout_s"`
 	ExitCode         *int              `json:"exit_code,omitempty"`
 	Error            string            `json:"error,omitempty"`
+	SubmittedBy      string            `json:"submitted_by,omitempty"`
 	CreatedAt        string            `json:"created_at"`
 	UpdatedAt        string            `json:"updated_at"`
+	StartedAt        string            `json:"started_at,omitempty"`
+	FinishedAt       string            `json:"finished_at,omitempty"`
 }
 
 // JobSpec is the body for submitting a job.
@@ -113,9 +117,15 @@ func (c *Client) GetJob(ctx context.Context, id string) (Job, error) {
 
 // ListJobs lists jobs, optionally filtered by status.
 func (c *Client) ListJobs(ctx context.Context, status string) ([]Job, error) {
+	return c.ListJobsFiltered(ctx, url.Values{"status": {status}})
+}
+
+// ListJobsFiltered lists jobs with arbitrary query filters (status, image,
+// submitted_by, since, limit).
+func (c *Client) ListJobsFiltered(ctx context.Context, q url.Values) ([]Job, error) {
 	path := "/api/jobs"
-	if status != "" {
-		path += "?status=" + status
+	if enc := q.Encode(); enc != "" {
+		path += "?" + enc
 	}
 	var jobs []Job
 	err := c.do(ctx, http.MethodGet, path, nil, &jobs)

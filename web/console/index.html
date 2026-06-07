@@ -69,6 +69,7 @@
       <div class="card-head">
         <h2>Jobs</h2>
         <div class="filters" id="filters">
+          <input id="job-search" class="search" placeholder="filter image…" />
           <button class="chip active" data-status="">all</button>
           <button class="chip" data-status="queued">queued</button>
           <button class="chip" data-status="in_flight">running</button>
@@ -77,8 +78,8 @@
         </div>
       </div>
       <table class="jobs">
-        <thead><tr><th>ID</th><th>Image</th><th>Status</th><th>Node</th><th>Try</th><th>Exit</th><th>Updated</th><th></th></tr></thead>
-        <tbody id="jobs-body"><tr><td colspan="8" class="empty">Connect to a control plane to see jobs.</td></tr></tbody>
+        <thead><tr><th>ID</th><th>Image</th><th>Status</th><th>Node</th><th>Try</th><th>Exit</th><th>Dur</th><th>Updated</th><th></th></tr></thead>
+        <tbody id="jobs-body"><tr><td colspan="9" class="empty">Connect to a control plane to see jobs.</td></tr></tbody>
       </table>
     </section>
   </main>

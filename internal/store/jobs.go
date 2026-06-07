@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -214,15 +215,49 @@ func (s *Store) GetJob(id string) (Job, error) {
 	return scanJob(s.db.QueryRow(jobSelect+` WHERE id = ?`, id))
 }
 
+// JobFilter narrows a job history query. Zero-value fields are ignored.
+type JobFilter struct {
+	Status      string // exact status
+	Image       string // substring match
+	SubmittedBy string // substring match
+	Since       string // created_at >= this RFC3339 timestamp
+	Limit       int    // max rows (<=0 = no limit)
+}
+
 // ListJobs returns jobs, newest first. If status is non-empty it filters by it.
 func (s *Store) ListJobs(status string) ([]Job, error) {
+	return s.ListJobsFiltered(JobFilter{Status: status})
+}
+
+// ListJobsFiltered returns jobs matching the filter, newest first.
+func (s *Store) ListJobsFiltered(f JobFilter) ([]Job, error) {
 	q := jobSelect
+	var where []string
 	var args []any
-	if status != "" {
-		q += ` WHERE status = ?`
-		args = append(args, status)
+	if f.Status != "" {
+		where = append(where, "status = ?")
+		args = append(args, f.Status)
 	}
-	q += ` ORDER BY created_at DESC`
+	if f.Image != "" {
+		where = append(where, "image LIKE '%' || ? || '%'")
+		args = append(args, f.Image)
+	}
+	if f.SubmittedBy != "" {
+		where = append(where, "submitted_by LIKE '%' || ? || '%'")
+		args = append(args, f.SubmittedBy)
+	}
+	if f.Since != "" {
+		where = append(where, "created_at >= ?")
+		args = append(args, f.Since)
+	}
+	if len(where) > 0 {
+		q += " WHERE " + strings.Join(where, " AND ")
+	}
+	q += " ORDER BY created_at DESC"
+	if f.Limit > 0 {
+		q += " LIMIT ?"
+		args = append(args, f.Limit)
+	}
 	rows, err := s.db.Query(q, args...)
 	if err != nil {
 		return nil, err

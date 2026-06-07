@@ -19,7 +19,7 @@ hopper submit --image mytool:latest --cmd "process /work/in -o /work/out" --inpu
 hopper result -o ./out <job-id>          # extracts the output tar.gz into ./out
 
 # Inspect
-hopper jobs                              # list (optionally --status queued|in_flight|done|failed)
+hopper jobs [--status S] [--image substr] [--submitted-by who] [--since RFC3339] [--limit N]
 hopper get <job-id>                      # full detail
 hopper logs <job-id>                     # captured stdout/stderr
 

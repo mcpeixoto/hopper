@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -90,9 +91,18 @@ func (a *API) Metrics(w http.ResponseWriter, r *http.Request) {
 	metrics.WritePrometheus(w, gauges)
 }
 
-// ListJobs returns jobs, optionally filtered by ?status=. Operator auth.
+// ListJobs returns jobs filtered by ?status=, ?image=, ?submitted_by=, ?since=,
+// ?limit=. Operator auth.
 func (a *API) ListJobs(w http.ResponseWriter, r *http.Request) {
-	jobs, err := a.Store.ListJobs(r.URL.Query().Get("status"))
+	q := r.URL.Query()
+	limit, _ := strconv.Atoi(q.Get("limit"))
+	jobs, err := a.Store.ListJobsFiltered(store.JobFilter{
+		Status:      q.Get("status"),
+		Image:       q.Get("image"),
+		SubmittedBy: q.Get("submitted_by"),
+		Since:       q.Get("since"),
+		Limit:       limit,
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return

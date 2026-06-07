@@ -6,6 +6,7 @@ const cfg = {
   token: localStorage.getItem("hopper.token") || "",
 };
 let filter = "";
+let searchImage = "";
 let timer = null;
 
 // ---- API ----
@@ -36,10 +37,20 @@ function fmtTime(s) {
   return d.toLocaleString();
 }
 
+function jobDuration(j) {
+  if (!j.started_at || !j.finished_at) return "—";
+  const s = new Date(j.started_at).getTime(), e = new Date(j.finished_at).getTime();
+  if (!(e >= s)) return "—";
+  const sec = Math.round((e - s) / 1000);
+  if (sec < 60) return `${sec}s`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m${sec % 60}s`;
+  return `${Math.floor(sec / 3600)}h${Math.floor((sec % 3600) / 60)}m`;
+}
+
 function renderJobs(jobs) {
   const body = $("#jobs-body");
   if (!jobs.length) {
-    body.innerHTML = `<tr><td colspan="8" class="empty">No ${filter || ""} jobs yet.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" class="empty">No ${filter || ""} jobs yet.</td></tr>`;
     return;
   }
   body.innerHTML = jobs.map((j) => `
@@ -50,6 +61,7 @@ function renderJobs(jobs) {
       <td class="mono">${j.claimed_by ? j.claimed_by.replace("wrk_", "") : "—"}</td>
       <td>${j.attempts}/${j.max_attempts}</td>
       <td>${j.exit_code ?? "—"}</td>
+      <td class="muted">${jobDuration(j)}</td>
       <td class="muted">${fmtTime(j.updated_at)}</td>
       <td>›</td>
     </tr>`).join("");
@@ -123,8 +135,12 @@ async function showDetail(id) {
 // ---- refresh loop ----
 async function refresh() {
   try {
+    const params = new URLSearchParams();
+    if (filter) params.set("status", filter);
+    if (searchImage) params.set("image", searchImage);
+    const qs = params.toString();
     const [jobs, workers] = await Promise.all([
-      api("/api/jobs" + (filter ? "?status=" + filter : "")),
+      api("/api/jobs" + (qs ? "?" + qs : "")),
       api("/api/workers"),
     ]);
     setConn(true);
@@ -135,7 +151,7 @@ async function refresh() {
     renderStats(all);
   } catch (e) {
     setConn(false);
-    $("#jobs-body").innerHTML = `<tr><td colspan="8" class="empty">${esc(e.message)}</td></tr>`;
+    $("#jobs-body").innerHTML = `<tr><td colspan="9" class="empty">${esc(e.message)}</td></tr>`;
   }
 }
 
@@ -187,6 +203,13 @@ $("#filters").addEventListener("click", (e) => {
 });
 
 $("#node-close").addEventListener("click", () => $("#node-detail").close());
+let searchTimer = null;
+$("#job-search").addEventListener("input", (e) => {
+  searchImage = e.target.value.trim();
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(refresh, 250);
+});
+
 $("#d-close").addEventListener("click", () => $("#job-detail").close());
 $("#d-cancel").addEventListener("click", async () => {
   if (!currentJob) return;
